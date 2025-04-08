@@ -1,0 +1,122 @@
+/* Grid Styles */
+.grid-container {
+  padding: 20px;
+}
+
+.grid-table-wrapper {
+  overflow-x: auto; /* Allow horizontal scrolling if many projects */
+}
+
+.generation-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  table-layout: fixed; /* Helps with fixed column widths if needed */
+}
+
+.generation-grid-table th, 
+.generation-grid-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.generation-grid-table th {
+  background-color: #f2f2f2;
+  white-space: nowrap;
+}
+
+/* Cell Styles */
+.grid-cell {
+  height: 150px; /* Example height */
+  width: 150px;  /* Example width */
+  text-align: center;
+  vertical-align: middle;
+  position: relative; /* For potential overlays */
+}
+
+.grid-cell.clickable {
+    cursor: pointer; /* Indicate clickable only when applicable */
+}
+
+.grid-cell.not-generated {
+  background-color: #f8f8f8;
+  color: #999;
+}
+
+.grid-cell.queued {
+  background-color: #eef;
+  color: #339;
+}
+
+.grid-cell.error {
+  background-color: #fee;
+  color: #a33;
+  font-size: 0.9em;
+  overflow: hidden;
+}
+
+.grid-cell.selected {
+    outline: 3px solid blue;
+    outline-offset: -3px;
+}
+
+.grid-cell img.thumbnail {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: auto; /* Центрирование картинки, если ячейка больше */
+}
+
+/* Styles for filters */
+.filters {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.project-filters label, 
+.collection-filters label {
+    margin-right: 10px;
+}
+
+.collection-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.collection-filters input[type="text"] {
+    padding: 5px;
+}
+
+.status-filters {
+    margin-left: auto;
+}
+
+.status-filters button {
+    margin-left: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.status-filters button:disabled {
+    background-color: #ccc;
+    cursor: default;
+}
+
+.action-buttons {
+    margin-left: 20px;
+}
+
+.action-buttons button {
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+.action-buttons button:disabled {
+     background-color: #ccc;
+    cursor: default;
+}
