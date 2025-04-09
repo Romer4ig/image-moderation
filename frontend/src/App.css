@@ -1,7 +1,7 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  /* max-width: 1280px; */ /* Комментируем или удаляем */
+  /* margin: 0 auto;    */ /* Комментируем или удаляем */
+  /* padding: 2rem;     */ /* Комментируем или удаляем, паддинг будет у контейнера */
   /* text-align: center; */ /* Убираем центрирование для App */
 }
 
@@ -107,6 +107,21 @@
   max-height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* Добавляем стиль для рамки выбранной ячейки */
+.cell-selected {
+  outline: 3px solid #0d6efd; /* Синий цвет Bootstrap primary */
+  outline-offset: -2px; /* Сдвиг рамки внутрь */
+}
+
+.generation-grid-table .cell-not-generated {
+  background-color: #B43000 !important; /* Применяем цвет из Figma */
+}
+
+/* Стиль для сгенерировано, но не выбрано */
+.generation-grid-table .cell-generated-not-selected {
+  background-color: #B78C00 !important; /* Желто-коричневый цвет */
 }
 
 /* TODO: Add more styles for filters, headers, etc. */

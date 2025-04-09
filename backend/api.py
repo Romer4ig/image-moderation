@@ -4,7 +4,7 @@ import json
 import requests # Добавляем requests
 import os # Добавляем os для работы с env
 import uuid
-from sqlalchemy import func # Для агрегатных функций
+from sqlalchemy import func, distinct # Для агрегатных функций и distinct
 from sqlalchemy.orm import joinedload, selectinload # Добавляем selectinload
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert # Используем для UPSERT на SQLite
 import logging # Добавляем logging
@@ -113,25 +113,54 @@ def delete_project(project_id):
 
 # --- Collection API Routes --- 
 
-@collections_api.route('/projects/<string:project_id>/collections', methods=['POST'])
-def create_collection(project_id):
-    # Убедимся, что проект существует
-    project = Project.query.get_or_404(project_id)
-    data = request.json
-    if not data or not data.get('name'):
-        return jsonify({"error": "Collection name is required"}), 400
+@collections_api.route('/collections', methods=['GET'])
+def get_collections():
+    """ Возвращает список всех коллекций. """
+    try:
+        collections = Collection.query.order_by(Collection.name).all()
+        return jsonify([c.to_dict() for c in collections])
+    except Exception as e:
+        print(f"Error fetching collections: {e}")
+        return jsonify({"error": "Failed to fetch collections"}), 500
 
-    new_collection = Collection(
-        project_id=project_id,
-        name=data['name'],
-        type=data.get('type'),
-        collection_positive_prompt=data.get('collection_positive_prompt', ''),
-        collection_negative_prompt=data.get('collection_negative_prompt', ''),
-        comment=data.get('comment', '')
-    )
-    db.session.add(new_collection)
-    db.session.commit()
-    return jsonify(new_collection.to_dict()), 201
+@collections_api.route('/collections', methods=['POST'])
+def add_collection():
+    """ Добавляет новый независимый сборник в базу данных. """
+    data = request.json
+    
+    # Добавляем id в обязательные поля
+    required_fields = ['id', 'name', 'type'] 
+    if not data or not all(field in data and (data[field] is not None and data[field] != '') for field in required_fields):
+        missing = [field for field in required_fields if not data or field not in data or (data[field] is None or data[field] == '')]
+        return jsonify({"error": f"Missing or empty required fields: {', '.join(missing)}"}), 400
+
+    try:
+        collection_id = int(data['id']) # Преобразуем ID в число
+    except (ValueError, TypeError):
+         return jsonify({"error": "Invalid ID format. ID must be an integer."}), 400
+
+    name = data['name']
+    collection_type = data['type']
+    
+    # Проверка на уникальность ID
+    if Collection.query.get(collection_id):
+        return jsonify({"error": f"Collection with ID '{collection_id}' already exists"}), 409
+
+    try:
+        new_collection = Collection(
+            id=collection_id, # Передаем ID из запроса
+            name=name,
+            type=collection_type,
+        )
+        db.session.add(new_collection)
+        db.session.commit()
+        print(f"Added new collection: ID={new_collection.id}, Name={new_collection.name}")
+        return jsonify({"message": "Collection added successfully", "collection": new_collection.to_dict()}), 201 
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding collection: {e}")
+        return jsonify({"error": "Failed to add collection to database"}), 500
 
 @collections_api.route('/projects/<string:project_id>/collections', methods=['GET'])
 def get_project_collections(project_id):
@@ -288,13 +317,22 @@ def get_grid_data():
             collection_dict = collection.to_dict()
             cells = {}
             
+            # --- Добавляем запрос для последней даты генерации --- 
+            last_gen_date_query = db.session.query(func.max(Generation.updated_at))\
+                                         .filter(Generation.collection_id == collection.id)\
+                                         .scalar() # Получаем одно значение (дату или None)
+            
+            collection_dict['last_generation_at'] = last_gen_date_query.isoformat() + 'Z' if last_gen_date_query else None
+            # --- Конец добавления --- 
+            
             for project in projects:
                 cell_key = project.id
                 cell_data = {
                     'status': 'not_generated', # Статус по умолчанию
                     'generation_id': None,
                     'file_url': None,
-                    'is_selected': False
+                    'is_selected': False,
+                    'error_message': None # Добавляем для единообразия
                 }
 
                 # Ищем выбранную обложку для этой пары (Collection, Project)
@@ -338,7 +376,7 @@ def get_grid_data():
                     last_generation = Generation.query.filter_by(
                         collection_id=collection.id,
                         project_id=project.id
-                    ).order_by(Generation.created_at.desc()).first()
+                    ).order_by(Generation.updated_at.desc()).first() # Используем updated_at для последней
                     
                     if last_generation:
                         cell_data['generation_id'] = last_generation.id
@@ -386,6 +424,17 @@ def get_selection_data():
         # 1. Получаем все проекты (для верхнего ряда модалки)
         all_projects = Project.query.order_by(Project.name).all()
         
+        # --- НОВОЕ: Получаем ID проектов, имеющих завершенные генерации для этой коллекции ---
+        projects_with_completed_generations = db.session.query(distinct(Generation.project_id))\
+            .filter(
+                Generation.collection_id == collection_id, 
+                Generation.status == GenerationStatus.COMPLETED
+            )\
+            .all()
+        # Преобразуем результат [(id1,), (id2,), ...] в список [id1, id2, ...]
+        project_ids_with_generations = [pid[0] for pid in projects_with_completed_generations]
+        # --- Конец добавления --- 
+
         # 2. Получаем выбранные обложки для этой коллекции по ВСЕМ проектам
         selected_covers_query = SelectedCover.query.filter_by(collection_id=collection_id)\
             .options(
@@ -422,36 +471,27 @@ def get_selection_data():
             collection_id=collection_id,
             project_id=project_id,
             status=GenerationStatus.COMPLETED # Показываем только завершенные
-        ).order_by(Generation.created_at.desc()).all() # Убрали options, оставили .all() в конце
-        # .options(selectinload(Generation.generated_files)) # Убираем options, полагаемся на lazy loading
-         
-        # --- Отладка: Проверяем, сколько генераций найдено --- 
-        # print(f"DEBUG: Found {len(generation_attempts)} completed generation attempts for C:{collection_id}, P:{project_id}")
-        # ------------------------------------------------------
+        ).order_by(Generation.created_at.desc()).all() # Убираем .options(...)
+        # .options(selectinload(Generation.generated_files)) <-- Убеждаемся, что это закомментировано/удалено
 
         attempts_data = []
+        # Обновленная логика для обработки всех файлов
         for gen in generation_attempts:
-             # --- Отладка: Проверяем каждую генерацию и наличие файла --- 
-             # print(f"DEBUG: Checking Generation ID: {gen.id}, Status: {gen.status.value}. Has first file? {'Yes' if first_file else 'No'}")
-             # if first_file:
-             #     print(f"DEBUG:   -> File ID: {first_file.id}, Path: {first_file.file_path}")
-             # ----------------------------------------------------------
-             
-             # Теперь итерируем по ВСЕМ файлам КАЖДОЙ найденной генерации
-             for file in gen.generated_files.order_by(GeneratedFile.created_at): # Добавим сортировку для порядка
+            for file in gen.generated_files.order_by(GeneratedFile.created_at): # <-- Здесь сработает lazy loading
                  attempts_data.append({
-                     'generation_id': gen.id, # ID генерации, к которой файл относится
+                     'generation_id': gen.id, 
                      'generated_file_id': file.id,
                      'file_url': file.get_url(),
-                     'created_at': file.created_at.isoformat() + 'Z' # Используем время создания файла?
-                     # Можно использовать gen.created_at, если нужно время начала генерации
+                     'created_at': file.created_at.isoformat() + 'Z'
                  })
 
         return jsonify({
             'collection': collection.to_dict(),
             'target_project': target_project.to_dict(),
             'top_row_projects': top_row_data, # Выбранные обложки по всем проектам
-            'generation_attempts': attempts_data # Все попытки для выбранного проекта
+            'generation_attempts': attempts_data, # Все попытки для выбранного проекта
+            # Добавляем новый список ID
+            'project_ids_with_generations': project_ids_with_generations 
         })
 
     except Exception as e:

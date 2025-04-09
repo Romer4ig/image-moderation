@@ -38,7 +38,6 @@ class Project(db.Model):
     default_height = db.Column(db.Integer, nullable=False, default=512)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    collections = db.relationship('Collection', back_populates='project', lazy='dynamic', cascade="all, delete-orphan")
     generations = db.relationship('Generation', back_populates='project', lazy='dynamic')
 
     def __repr__(self):
@@ -60,8 +59,7 @@ class Project(db.Model):
 
 class Collection(db.Model):
     __tablename__ = 'collections'
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False, index=True)
+    id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     type = db.Column(db.String(50), nullable=True, index=True) # TODO: Use db.Enum(CollectionType)
     collection_positive_prompt = db.Column(db.Text, nullable=True, default='')
@@ -69,16 +67,14 @@ class Collection(db.Model):
     comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    project = db.relationship('Project', back_populates='collections')
     generations = db.relationship('Generation', back_populates='collection', lazy='dynamic')
 
     def __repr__(self):
-        return f'<Collection {self.name} (Project: {self.project_id})>'
+        return f'<Collection {self.name} ({self.id})>'
 
     def to_dict(self): # Метод для сериализации в JSON
         return {
             'id': self.id,
-            'project_id': self.project_id,
             'name': self.name,
             'type': self.type,
             'collection_positive_prompt': self.collection_positive_prompt,

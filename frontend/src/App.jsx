@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import io from 'socket.io-client'
 import GenerationGrid from './components/GenerationGrid'
+import Container from 'react-bootstrap/Container';
+import Navbar from 'react-bootstrap/Navbar';
+import Nav from 'react-bootstrap/Nav';
+// Импортируем компоненты для роутинга
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; 
+// Импортируем новую страницу
+import ProjectsPage from './pages/ProjectsPage'; 
 import './App.css'
 
 // URL нашего Flask-SocketIO сервера
@@ -85,67 +92,57 @@ function App() {
   }, []) // Пустой массив зависимостей - запускаем эффект один раз
 
   return (
-    <div className="App"> {/* Используем класс App для возможных стилей */} 
-      <h1>Image Generation Dashboard</h1>
-      <p>Socket.IO Connection Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
-      
-      {/* Отображаем последнее сообщение для отладки */} 
-      {lastMessage && (
-        <div style={{ margin: '10px', padding: '10px', border: '1px solid green' }}>
-          <strong>Last Generation Update:</strong>
-          <pre>{JSON.stringify(lastMessage, null, 2)}</pre>
-        </div>
-      )}
+    // Оборачиваем все в Router
+    <Router>
+      <div className="App">
+        {/* --- Navbar --- */}
+        <Navbar bg="primary" variant="dark" expand="lg" sticky="top">
+          <Container fluid>
+            {/* Используем Link для навигации */}
+            <Navbar.Brand as={Link} to="/">Обложки сборников</Navbar.Brand>
+            <Navbar.Toggle aria-controls="basic-navbar-nav" />
+            <Navbar.Collapse id="basic-navbar-nav">
+              <Nav className="ms-auto">
+                {/* Добавляем ссылку на страницу проектов */} 
+                <Nav.Link as={Link} to="/projects">Проекты</Nav.Link>
+                <Nav.Link href="#link">Document Link</Nav.Link> {/* Оставляем старую ссылку как пример */} 
+              </Nav>
+            </Navbar.Collapse>
+          </Container>
+        </Navbar>
 
-      {/* Передаем состояние и сеттеры в грид */}
-      <GenerationGrid 
-          collections={collections}
-          setCollections={setCollections}
-          gridLoading={gridLoading}
-          setGridLoading={setGridLoading}
-          gridError={gridError}
-          setGridError={setGridError}
-      />
-      
-      {/* Убираем старый тестовый код */}
-      {/* 
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        {/* --- Основной контент с роутингом --- */}
+        <Container fluid className="mt-4">
+          {/* Определяем маршруты */}
+          <Routes>
+            {/* Главная страница (сетка генераций) */}
+            <Route path="/" element={ 
+              <>
+                 <h1>Сравнение и выбор обложек</h1>
+                 <p>Socket.IO Connection Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
+                 {/* Отладочное сообщение */}
+                 {lastMessage && (
+                   <div style={{ margin: '10px', padding: '10px', border: '1px solid green' }}>
+                     <strong>Last Generation Update:</strong>
+                     <pre>{JSON.stringify(lastMessage, null, 2)}</pre>
+                   </div>
+                 )}
+                 <GenerationGrid 
+                     collections={collections}
+                     setCollections={setCollections}
+                     gridLoading={gridLoading}
+                     setGridLoading={setGridLoading}
+                     gridError={gridError}
+                     setGridError={setGridError}
+                 />
+              </> 
+            } />
+            {/* Страница проектов */} 
+            <Route path="/projects" element={<ProjectsPage />} /> 
+          </Routes>
+        </Container>
       </div>
-      <h1>Vite + React</h1>
-      <h2>Message from Backend: {message}</h2>
-      <div className="card">
-         <h3>Test Automatic1111 Connection</h3>
-         <button onClick={handleTestA1111}>
-           Test A1111 API Call
-         </button>
-         <p>Status: {a1111Status}</p>
-      </div>
-      <div className="card">
-         <h3>Test Database Connection</h3>
-         <button onClick={handleTestDb}>
-           Test DB Connection
-         </button>
-         <p>Status: {dbStatus}</p>
-      </div>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-      */}
-    </div>
+    </Router>
   )
 }
 
