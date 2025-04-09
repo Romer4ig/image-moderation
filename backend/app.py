@@ -1,14 +1,29 @@
 import os
+# # Хак для разрешения относительных импортов при прямом запуске
+# # (Должен быть до любых относительных импортов в этом файле)
+# import sys
+# if __name__ == '__main__' and '__file__' in globals():
+#     # Добавляем родительскую директорию (корень проекта) в sys.path
+#     # Это позволяет Python найти пакет 'backend' при импорте '.models'
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#     parent_dir = os.path.dirname(current_dir)
+#     if parent_dir not in sys.path:
+#         sys.path.insert(0, parent_dir)
+# # ---- Конец хака ----
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-from .models import db # Импортируем db из models.py
+# Используем абсолютный импорт
+from backend.models import db # Импортируем db из models.py
 
 # Загружаем переменные окружения из .env файла
-load_dotenv()
+# Указываем путь к .env относительно текущего файла (app.py)
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 # Инициализация SocketIO
 socketio = SocketIO()
@@ -35,15 +50,34 @@ def create_app():
 
     with app.app_context():
         # Создание таблиц БД
-        from . import models # Убедимся, что модели импортированы перед create_all
+        # Используем абсолютный импорт
+        from backend import models # Убедимся, что модели импортированы перед create_all
         db.create_all()
 
-        # --- Регистрация Blueprints (API маршрутов) --- 
-        from .api import projects_api, collections_api, generations_api, files_api # Импортируем blueprints
-        app.register_blueprint(projects_api, url_prefix='/api')
-        app.register_blueprint(collections_api, url_prefix='/api')
-        app.register_blueprint(generations_api, url_prefix='/api') 
-        app.register_blueprint(files_api) # Без префикса /api для путей файлов
+        # --- Регистрация Blueprints (API маршрутов) ---
+        # Используем абсолютный импорт
+        # from backend.api import projects_api, collections_api, generations_api, files_api # Импортируем blueprints
+        # Импортируем Blueprint из нового среза
+        from backend.features.project_management.routes import projects_bp
+        from backend.features.collection_management.routes import collections_bp
+        from backend.features.image_generation.routes import generation_bp
+        from backend.features.grid_selection.routes import grid_selection_bp
+        from backend.features.file_serving.routes import file_serving_bp
+        # Импортируем остальные из старого api.py (пока они там)
+        # from backend.api import collections_api, generations_api, files_api 
+        # from backend.api import generations_api, files_api # Убираем collections_api
+        # from backend.api import files_api # Убираем generations_api из старого
+        # from backend.api import files_api 
+
+        # app.register_blueprint(projects_api, url_prefix='/api') # Закомментировано
+        app.register_blueprint(projects_bp) # Регистрируем новый Blueprint (префикс /api уже в нем)
+        # app.register_blueprint(collections_api, url_prefix='/api') # Закомментировано
+        app.register_blueprint(collections_bp) # Регистрируем новый Blueprint (префикс /api уже в нем)
+        # app.register_blueprint(generations_api, url_prefix='/api') # Закомментировано
+        app.register_blueprint(generation_bp) # Регистрируем новый Blueprint (префикс /api уже в нем)
+        app.register_blueprint(grid_selection_bp) # Регистрируем новый Blueprint (префикс /api уже в нем)
+        # app.register_blueprint(files_api) # Закомментировано
+        app.register_blueprint(file_serving_bp) # Регистрируем новый Blueprint (без префикса)
 
         # Тестовый маршрут
         @app.route('/api/hello')
@@ -73,6 +107,19 @@ def create_app():
 
 # Если хотим запускать через python app.py (для отладки)
 if __name__ == '__main__':
+    # # Хак для разрешения относительных импортов при прямом запуске
+    # import sys
+    # import os
+    # # Добавляем родительскую директорию (корень проекта) в sys.path
+    # # Это позволяет Python найти пакет 'backend' при импорте '.models'
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # parent_dir = os.path.dirname(current_dir)
+    # if parent_dir not in sys.path:
+    #     sys.path.insert(0, parent_dir)
+
     app = create_app()
     # Используем socketio.run для поддержки WebSockets
-    socketio.run(app, debug=os.environ.get('FLASK_DEBUG') == '1', port=5001, host='0.0.0.0')
+    socketio.run(app, 
+                 debug=os.environ.get('FLASK_DEBUG') == '1', 
+                 port=int(os.environ.get('FLASK_PORT', 5001)), # Берем порт из .env
+                 host='0.0.0.0')

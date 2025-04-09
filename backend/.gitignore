@@ -72,3 +72,4 @@ pids
 .cursor/workspace/
 venv
 .idea
+generated_images

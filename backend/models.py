@@ -142,17 +142,9 @@ class GeneratedFile(db.Model):
         return f'<GeneratedFile {self.file_path} (Gen: {self.generation_id})>'
     
     def get_url(self):
-        # Генерирует URL для доступа к файлу через специальный эндпоинт
-        # TODO: Создать эндпоинт 'serve_generated_file' в app.py
-        try:
-            # Используем _external=True для получения полного URL
-            # Исправляем имя эндпоинта, добавляя префикс Blueprint
-            return url_for('files_api.serve_generated_file', filepath=self.file_path, _external=True, _scheme='http')
-        except RuntimeError: 
-             # Может возникнуть, если url_for вызывается вне контекста запроса
-             # Возвращаем относительный путь как запасной вариант
-             # Это нужно будет исправить при реализации отдачи файлов
-             return f"/generated_files/{self.file_path}" 
+        """ Возвращает полный URL для доступа к файлу. """
+        # Используем имя нового Blueprint: 'file_serving'
+        return url_for('file_serving.serve_generated_file', filepath=self.file_path, _external=True, _scheme='http')
 
     def to_dict(self): # Метод для сериализации
         return {
