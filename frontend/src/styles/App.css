@@ -57,7 +57,7 @@
   table-layout: fixed; /* Helps with fixed column widths if needed */
 }
 
-.generation-grid-table th, 
+.generation-grid-table th,
 .generation-grid-table td {
   border: 1px solid #ddd;
   padding: 8px;
@@ -73,7 +73,7 @@
 /* Cell Styles */
 .grid-cell {
   height: 150px; /* Example height */
-  width: 150px;  /* Example width */
+  width: 150px; /* Example width */
   text-align: center;
   vertical-align: middle;
   cursor: pointer; /* Indicate clickable */
@@ -98,8 +98,8 @@
 }
 
 .grid-cell.selected {
-    outline: 3px solid blue;
-    outline-offset: -3px;
+  outline: 3px solid blue;
+  outline-offset: -3px;
 }
 
 .grid-cell img.thumbnail {
@@ -116,12 +116,12 @@
 }
 
 .generation-grid-table .cell-not-generated {
-  background-color: #B43000 !important; /* Применяем цвет из Figma */
+  background-color: #b43000 !important; /* Применяем цвет из Figma */
 }
 
 /* Стиль для сгенерировано, но не выбрано */
 .generation-grid-table .cell-generated-not-selected {
-  background-color: #B78C00 !important; /* Желто-коричневый цвет */
+  background-color: #b78c00 !important; /* Желто-коричневый цвет */
 }
 
 /* TODO: Add more styles for filters, headers, etc. */

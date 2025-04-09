@@ -1,12 +1,78 @@
-# React + Vite
+# Image Moderation Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Это фронтенд-часть веб-приложения для генерации изображений с помощью Stable Diffusion и их последующей модерации. Приложение разработано с использованием React и Vite.
 
-Currently, two official plugins are available:
+## Основные возможности
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   Просмотр коллекций и проектов в виде сетки.
+*   Запуск пакетной генерации изображений для выбранных коллекций и проектов через API бэкенда.
+*   Отслеживание статуса генерации в реальном времени с помощью WebSocket.
+*   Выбор "обложки" (лучшего изображения) для каждой пары Коллекция-Проект через модальное окно.
+*   Редактирование промптов и комментариев для коллекций с автосохранением.
+*   Управление проектами (просмотр, добавление).
+*   (Планируется) Интерфейс модерации сгенерированных изображений.
 
-## Expanding the ESLint configuration
+## Технологии
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+*   **Фреймворк:** React 18+
+*   **Сборщик:** Vite
+*   **Маршрутизация:** React Router DOM
+*   **UI-компоненты:** React Bootstrap, React Bootstrap Icons
+*   **HTTP-клиент:** Axios
+*   **Realtime:** Socket.IO Client
+*   **Управление состоянием:** React Context API (для коллекций)
+
+## Структура проекта (`src`)
+
+*   **`components/`**
+    *   **`common/`**: Общие, переиспользуемые UI-компоненты (пока нет).
+    *   **`layout/`**: Компоненты для общей структуры страниц (например, `Layout.jsx` с Navbar).
+*   **`context/`**: React Context для управления глобальным состоянием (например, `CollectionContext.jsx`).
+*   **`features/`**: Основные функциональные модули приложения. Каждый модуль содержит свои компоненты, хуки и стили.
+    *   `collections/`
+    *   `generation/`
+    *   `projects/`
+    *   `selection/`
+*   **`hooks/`**: Глобальные пользовательские хуки (например, `useWebSocket.js`).
+*   **`pages/`**: Компоненты-страницы, собирающие фичи для конкретных маршрутов (например, `ProjectsPage.jsx`).
+*   **`services/`**: Функции для взаимодействия с API (пока не используется, запросы в хуках).
+*   **`styles/`**: Глобальные стили и стили компонентов.
+*   **`utils/`**: Вспомогательные функции (пока нет).
+*   `App.jsx`: Корневой компонент приложения, настройка маршрутизации и провайдеров контекста.
+*   `main.jsx`: Точка входа приложения React.
+
+## Запуск
+
+1.  **Установите зависимости:**
+    ```bash
+    npm install
+    # или
+    yarn install
+    ```
+2.  **Настройте переменные окружения:**
+    Создайте файл `.env` в корневой директории `frontend` и добавьте URL бэкенда и WebSocket (если они отличаются от дефолтных). Пример:
+    ```dotenv
+    # Не используется напрямую в коде, но полезно для справки
+    VITE_API_BASE_URL=http://localhost:5001/api
+    VITE_SOCKET_URL=http://localhost:5001
+
+    # Включить/выключить отображение отладочной информации WebSocket
+    VITE_SHOW_DEBUG=true
+    ```
+    *Примечание:* Текущий код использует жестко закодированные URL (`http://localhost:5001`), но рекомендуется использовать переменные окружения для гибкости.
+3.  **Запустите сервер разработки:**
+    ```bash
+    npm run dev
+    # или
+    yarn dev
+    ```
+    Приложение будет доступно по адресу, указанному Vite (обычно `http://localhost:5173`).
+
+## Сборка для продакшена
+
+```bash
+npm run build
+# или
+yarn build
+```
+Собранные файлы будут находиться в директории `dist`.

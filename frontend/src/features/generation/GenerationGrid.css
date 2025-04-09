@@ -14,7 +14,7 @@
   table-layout: fixed; /* Helps with fixed column widths if needed */
 }
 
-.generation-grid-table th, 
+.generation-grid-table th,
 .generation-grid-table td {
   border: 1px solid #ddd;
   padding: 8px;
@@ -30,14 +30,14 @@
 /* Cell Styles */
 .grid-cell {
   height: 150px; /* Example height */
-  width: 150px;  /* Example width */
+  width: 150px; /* Example width */
   text-align: center;
   vertical-align: middle;
   position: relative; /* For potential overlays */
 }
 
 .grid-cell.clickable {
-    cursor: pointer; /* Indicate clickable only when applicable */
+  cursor: pointer; /* Indicate clickable only when applicable */
 }
 
 .grid-cell.not-generated {
@@ -58,8 +58,8 @@
 }
 
 .grid-cell.selected {
-    outline: 3px solid blue;
-    outline-offset: -3px;
+  outline: 3px solid blue;
+  outline-offset: -3px;
 }
 
 .grid-cell img.thumbnail {
@@ -72,51 +72,51 @@
 
 /* Styles for filters */
 .filters {
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
 }
 
-.project-filters label, 
+.project-filters label,
 .collection-filters label {
-    margin-right: 10px;
+  margin-right: 10px;
 }
 
 .collection-filters {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 .collection-filters input[type="text"] {
-    padding: 5px;
+  padding: 5px;
 }
 
 .status-filters {
-    margin-left: auto;
+  margin-left: auto;
 }
 
 .status-filters button {
-    margin-left: 5px;
-    padding: 5px 10px;
-    cursor: pointer;
+  margin-left: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
 }
 
 .status-filters button:disabled {
-    background-color: #ccc;
-    cursor: default;
+  background-color: #ccc;
+  cursor: default;
 }
 
 .action-buttons {
-    margin-left: 20px;
+  margin-left: 20px;
 }
 
 .action-buttons button {
-    padding: 8px 15px;
-    cursor: pointer;
+  padding: 8px 15px;
+  cursor: pointer;
 }
 
 .action-buttons button:disabled {
-     background-color: #ccc;
-    cursor: default;
+  background-color: #ccc;
+  cursor: default;
 }
