@@ -1,11 +1,7 @@
 import React from "react";
 import { Row, Col, Form } from "react-bootstrap";
 
-const ProjectFilters = ({
-  projects,
-  selectedProjectIds,
-  handleCheckboxChange,
-}) => {
+const ProjectFilters = ({ projects, selectedProjectIds, handleCheckboxChange }) => {
   return (
     <Row className="align-items-center mb-3">
       <Col xs="auto">
@@ -33,4 +29,4 @@ const ProjectFilters = ({
   );
 };
 
-export default ProjectFilters; 
+export default ProjectFilters;

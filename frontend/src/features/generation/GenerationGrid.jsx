@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import axios from "axios";
+// import axios from "axios"; <-- УДАЛИТЬ
 import SelectionModal from "../selection/SelectionModal";
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from "@tanstack/react-query";
 import { generateBatch } from "../../services/api";
 
 // Импорты react-bootstrap
@@ -42,14 +42,15 @@ import GridHeader from "./components/GridHeader";
 import GridRow from "./components/GridRow";
 import { useGenerationGridData } from "./hooks/useGenerationGridData";
 import { useCollectionActions } from "./hooks/useCollectionActions";
-import { useCollections } from "../../context/CollectionContext";
+import { useCollections } from "../../context/useCollections";
 import "./GenerationGrid.css";
 
-const API_URL = "http://localhost:5001/api";
+// const API_URL = "http://localhost:5001/api"; <-- УДАЛИТЬ
 
 const GenerationGrid = () => {
-  const { collections, setCollections, allProjectsList, isLoadingGrid, gridError } = useCollections();
-  const queryClient = useQueryClient();
+  const { collections, setCollections, allProjectsList, isLoadingGrid, gridError } =
+    useCollections();
+  // const queryClient = useQueryClient(); <-- УДАЛИТЬ
 
   // --- Используем хук для данных грида ---
   const {
@@ -70,11 +71,8 @@ const GenerationGrid = () => {
     handleSelectAllColumnProjects,
   } = useGenerationGridData(collections, allProjectsList); // Передаем collections и allProjectsList
 
-  const {
-    fieldSaveStatus,
-    handlePromptChange,
-    handleAutoSaveCollectionField,
-  } = useCollectionActions(setCollections);
+  const { fieldSaveStatus, handlePromptChange, handleAutoSaveCollectionField } =
+    useCollectionActions(setCollections);
 
   // --- Оставшиеся состояния и обработчики ---
   const [selectedCollectionIds, setSelectedCollectionIds] = useState(new Set());
@@ -86,22 +84,24 @@ const GenerationGrid = () => {
   const [showCollectionComment, setShowCollectionComment] = useState(false);
   const [projectsForGenerationIds, setProjectsForGenerationIds] = useState(new Set());
 
-  // --- Мутация для запуска генерации --- 
-  const { 
-      mutate: generateBatchMutate, 
-      isLoading: isSubmittingGenerations,
-      error: generateError
+  // --- Мутация для запуска генерации ---
+  const {
+    mutate: generateBatchMutate,
+    isLoading: isSubmittingGenerations,
+    error: generateError,
   } = useMutation({
-      mutationFn: generateBatch,
-      onSuccess: (data) => {
-          console.log("Generate batch response:", data);
-          alert(`Задачи генерации отправлены (${data?.tasks_started?.length || 0} успешно). Проверьте статус в гриде.`);
-          setSelectedCollectionIds(new Set());
-      },
-      onError: (err) => {
-          console.error("Error calling generate-batch API:", err);
-          alert(`Ошибка при отправке задач генерации: ${err.response?.data?.error || err.message}`);
-      }
+    mutationFn: generateBatch,
+    onSuccess: (data) => {
+      console.log("Generate batch response:", data);
+      alert(
+        `Задачи генерации отправлены (${data?.tasks_started?.length || 0} успешно). Проверьте статус в гриде.`
+      );
+      setSelectedCollectionIds(new Set());
+    },
+    onError: (err) => {
+      console.error("Error calling generate-batch API:", err);
+      alert(`Ошибка при отправке задач генерации: ${err.response?.data?.error || err.message}`);
+    },
   });
 
   const handleGenerationProjectSelectionChange = (projectId, isChecked) => {
@@ -161,7 +161,7 @@ const GenerationGrid = () => {
       alert("Нет подходящих пар проект-коллекция для запуска генерации.");
       return;
     }
-    
+
     console.log("Calling generateBatch mutation with pairs:", pairsToGenerate);
     generateBatchMutate(pairsToGenerate);
   };
@@ -180,18 +180,27 @@ const GenerationGrid = () => {
     const status = fieldSaveStatus[collectionId]?.[fieldType];
     if (!status) return null;
     if (status.saving) {
-      return <Spinner animation="border" size="sm" variant="secondary" className="ms-1" title="Сохранение..." />;
+      return (
+        <Spinner
+          animation="border"
+          size="sm"
+          variant="secondary"
+          className="ms-1"
+          title="Сохранение..."
+        />
+      );
     }
     if (status.error) {
-      return <ExclamationTriangleFill className="text-danger ms-1" title={`Ошибка: ${status.error}`} />;
+      return (
+        <ExclamationTriangleFill className="text-danger ms-1" title={`Ошибка: ${status.error}`} />
+      );
     }
     if (status.saved) {
       return <CheckLg className="text-success ms-1" title="Сохранено" />;
     }
     return null;
   };
-  const handleCollectionAdded = () => {
-  };
+  const handleCollectionAdded = () => {};
 
   const allGenerationProjectsSelected =
     allProjectsList.length > 0 && projectsForGenerationIds.size === allProjectsList.length;
@@ -239,7 +248,11 @@ const GenerationGrid = () => {
         </div>
       )}
       {gridError && <Alert variant="danger">Ошибка загрузки данных: {gridError.message}</Alert>}
-      {generateError && <Alert variant="warning" className="mt-2">Ошибка запуска генерации: {generateError.message}</Alert>}
+      {generateError && (
+        <Alert variant="warning" className="mt-2">
+          Ошибка запуска генерации: {generateError.message}
+        </Alert>
+      )}
       {!isLoadingGrid && !gridError && (
         <Table bordered hover responsive className="generation-grid-table">
           <GridHeader
@@ -266,8 +279,8 @@ const GenerationGrid = () => {
                 handleAutoSaveCollectionField={handleAutoSaveCollectionField}
                 fieldSaveStatus={fieldSaveStatus}
                 renderFieldStatus={renderFieldStatus}
-                      />
-                    ))}
+              />
+            ))}
             {sortedAndFilteredCollections.length === 0 && (
               <tr>
                 <td

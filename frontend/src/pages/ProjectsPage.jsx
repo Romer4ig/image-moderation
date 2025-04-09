@@ -1,14 +1,5 @@
 import React from "react";
-import {
-  Container,
-  Accordion,
-  Spinner,
-  Alert,
-  Button,
-  Form,
-  Row,
-  Col,
-} from "react-bootstrap";
+import { Container, Accordion, Spinner, Alert, Button, Form, Row, Col } from "react-bootstrap";
 import { PlusCircleFill } from "react-bootstrap-icons";
 import AddProjectModal from "../features/projects/AddProjectModal";
 import { useProjects } from "../features/projects/hooks/useProjects";

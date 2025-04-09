@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from "react-bootstrap";
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createProject } from "../../services/api";
 
 const AddProjectModal = ({ show, onHide, onSuccess }) => {
@@ -13,18 +13,18 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
   const [baseGenerationParamsJsonString, setBaseGenerationParamsJsonString] = useState("{}");
   const [jsonError, setJsonError] = useState(null);
 
-  const { 
-      mutate: addProjectMutate, 
-      isLoading: isSubmitting,
-      error,
-      reset
+  const {
+    mutate: addProjectMutate,
+    isLoading: isSubmitting,
+    error,
+    reset,
   } = useMutation({
-      mutationFn: createProject, 
-      onSuccess: () => {
-          queryClient.invalidateQueries(['projects']);
-          handleClose();
-          onSuccess();
-      },
+    mutationFn: createProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries(["projects"]);
+      handleClose();
+      onSuccess();
+    },
   });
 
   useEffect(() => {
@@ -88,7 +88,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
       default_height: Number(defaultHeight) || 512,
       base_generation_params_json: paramsJson,
     };
-    
+
     addProjectMutate(payload);
   };
 

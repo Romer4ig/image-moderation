@@ -109,4 +109,4 @@ const GridCell = ({ cellData, onClick }) => {
   );
 };
 
-export default GridCell; 
+export default GridCell;

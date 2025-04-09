@@ -47,4 +47,4 @@ const AttemptGrid = ({
   );
 };
 
-export default AttemptGrid; 
+export default AttemptGrid;

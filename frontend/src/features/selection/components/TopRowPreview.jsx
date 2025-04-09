@@ -33,4 +33,4 @@ const TopRowPreview = ({ topRowItems }) => {
   );
 };
 
-export default TopRowPreview; 
+export default TopRowPreview;

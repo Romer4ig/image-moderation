@@ -10,12 +10,7 @@ import {
   Button,
   Spinner,
 } from "react-bootstrap";
-import {
-  SortDown,
-  SortUp,
-  FunnelFill,
-  TagFill,
-} from "react-bootstrap-icons";
+import { SortDown, SortUp, FunnelFill, TagFill } from "react-bootstrap-icons";
 
 const GridControls = ({
   // Состояния и обработчики для опций генерации
@@ -334,4 +329,4 @@ const GridControls = ({
   );
 };
 
-export default GridControls; 
+export default GridControls;

@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  Form,
-  Badge,
-} from "react-bootstrap";
+import { Form, Badge } from "react-bootstrap";
 import GridCell from "./GridCell";
 
 const GridRow = ({
@@ -20,7 +17,6 @@ const GridRow = ({
   fieldSaveStatus,
   renderFieldStatus,
 }) => {
-
   const positivePromptInvalid = !collection.collection_positive_prompt;
   const positiveStatus = fieldSaveStatus[collection.id]?.positive || {};
   const negativeStatus = fieldSaveStatus[collection.id]?.negative || {};
@@ -33,9 +29,7 @@ const GridRow = ({
           type="checkbox"
           id={`collection-${collection.id}`}
           checked={selectedCollectionIds.has(collection.id)}
-          onChange={(e) =>
-            handleCollectionSelectionChange(collection.id, e.target.checked)
-          }
+          onChange={(e) => handleCollectionSelectionChange(collection.id, e.target.checked)}
           className="float-start me-2"
         />
         <div>
@@ -64,15 +58,9 @@ const GridRow = ({
                 rows={2}
                 placeholder="Positive Prompt"
                 value={collection.collection_positive_prompt || ""}
-                onChange={(e) =>
-                  handlePromptChange(collection.id, "positive", e.target.value)
-                }
+                onChange={(e) => handlePromptChange(collection.id, "positive", e.target.value)}
                 onBlur={(e) =>
-                  handleAutoSaveCollectionField(
-                    collection.id,
-                    "positive",
-                    e.target.value
-                  )
+                  handleAutoSaveCollectionField(collection.id, "positive", e.target.value)
                 }
                 size="sm"
                 className={`${positiveStatus.saved && !positivePromptInvalid ? "border border-success" : ""}`}
@@ -90,15 +78,9 @@ const GridRow = ({
                 rows={1}
                 placeholder="Negative Prompt"
                 value={collection.collection_negative_prompt || ""}
-                onChange={(e) =>
-                  handlePromptChange(collection.id, "negative", e.target.value)
-                }
+                onChange={(e) => handlePromptChange(collection.id, "negative", e.target.value)}
                 onBlur={(e) =>
-                  handleAutoSaveCollectionField(
-                    collection.id,
-                    "negative",
-                    e.target.value
-                  )
+                  handleAutoSaveCollectionField(collection.id, "negative", e.target.value)
                 }
                 size="sm"
                 className={`${negativeStatus.saved ? "border border-success" : ""}`}
@@ -115,15 +97,9 @@ const GridRow = ({
                 rows={1}
                 placeholder="Комментарий"
                 value={collection.comment || ""}
-                onChange={(e) =>
-                  handlePromptChange(collection.id, "comment", e.target.value)
-                }
+                onChange={(e) => handlePromptChange(collection.id, "comment", e.target.value)}
                 onBlur={(e) =>
-                  handleAutoSaveCollectionField(
-                    collection.id,
-                    "comment",
-                    e.target.value
-                  )
+                  handleAutoSaveCollectionField(collection.id, "comment", e.target.value)
                 }
                 size="sm"
                 className={`${commentStatus.saved ? "border border-success" : ""}`}
@@ -139,4 +115,4 @@ const GridRow = ({
   );
 };
 
-export default GridRow; 
+export default GridRow;

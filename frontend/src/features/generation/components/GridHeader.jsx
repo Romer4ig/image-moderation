@@ -32,4 +32,4 @@ const GridHeader = ({
   );
 };
 
-export default GridHeader; 
+export default GridHeader;

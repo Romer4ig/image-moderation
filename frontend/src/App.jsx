@@ -3,7 +3,8 @@ import GenerationGrid from "./features/generation/GenerationGrid";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProjectsPage from "./pages/ProjectsPage";
 import Layout from "./components/layout/Layout";
-import { CollectionProvider, useCollections } from "./context/CollectionContext";
+import { CollectionProvider } from "./context/CollectionContext";
+import { useCollections } from "./context/useCollections";
 import "./styles/App.css";
 
 const AppContent = () => {
@@ -18,10 +19,19 @@ const AppContent = () => {
             <>
               <h1>Сравнение и выбор обложек</h1>
               {/* Условное отображение отладочного блока */}
-              {import.meta.env.VITE_SHOW_DEBUG === 'true' && lastMessage && (
-                <div style={{ margin: "10px", padding: "10px", border: "1px solid grey", fontSize: "0.8em" }}>
+              {import.meta.env.VITE_SHOW_DEBUG === "true" && lastMessage && (
+                <div
+                  style={{
+                    margin: "10px",
+                    padding: "10px",
+                    border: "1px solid grey",
+                    fontSize: "0.8em",
+                  }}
+                >
                   <strong>Last WS Update:</strong>
-                  <pre style={{ maxHeight: "100px", overflowY: "auto" }}>{JSON.stringify(lastMessage, null, 2)}</pre>
+                  <pre style={{ maxHeight: "100px", overflowY: "auto" }}>
+                    {JSON.stringify(lastMessage, null, 2)}
+                  </pre>
                 </div>
               )}
               <GenerationGrid />

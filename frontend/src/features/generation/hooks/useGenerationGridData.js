@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
-export const useGenerationGridData = (
-    collections = [], 
-    allProjectsList = []
-) => {
-  const [visibleColumnProjectIds, setVisibleColumnProjectIds] = useState(() => 
-      new Set(allProjectsList.map((p) => p.id))
+export const useGenerationGridData = (collections = [], allProjectsList = []) => {
+  const [visibleColumnProjectIds, setVisibleColumnProjectIds] = useState(
+    () => new Set(allProjectsList.map((p) => p.id))
   );
   const [collectionTypes, setCollectionTypes] = useState([]);
   const [sortConfig, setSortConfig] = useState({
@@ -17,14 +14,12 @@ export const useGenerationGridData = (
   const [typeFilter, setTypeFilter] = useState("all");
 
   useEffect(() => {
-      const uniqueTypes = [
-        ...new Set(collections.map((c) => c.type).filter(Boolean)),
-      ].sort();
-      setCollectionTypes(uniqueTypes);
+    const uniqueTypes = [...new Set(collections.map((c) => c.type).filter(Boolean))].sort();
+    setCollectionTypes(uniqueTypes);
   }, [collections]);
-  
+
   const visibleProjects = useMemo(() => {
-      return allProjectsList.filter(p => visibleColumnProjectIds.has(p.id));
+    return allProjectsList.filter((p) => visibleColumnProjectIds.has(p.id));
   }, [allProjectsList, visibleColumnProjectIds]);
 
   const handleColumnProjectSelectionChange = useCallback((projectId, isChecked) => {
@@ -39,15 +34,18 @@ export const useGenerationGridData = (
     });
   }, []);
 
-  const handleSelectAllColumnProjects = useCallback((isChecked) => {
-    if (isChecked) {
-      setVisibleColumnProjectIds(new Set(allProjectsList.map((p) => p.id)));
-    } else {
-      if (visibleColumnProjectIds.size > 1 && allProjectsList.length > 0) {
-        setVisibleColumnProjectIds(new Set([allProjectsList[0].id]));
+  const handleSelectAllColumnProjects = useCallback(
+    (isChecked) => {
+      if (isChecked) {
+        setVisibleColumnProjectIds(new Set(allProjectsList.map((p) => p.id)));
+      } else {
+        if (visibleColumnProjectIds.size > 1 && allProjectsList.length > 0) {
+          setVisibleColumnProjectIds(new Set([allProjectsList[0].id]));
+        }
       }
-    }
-  }, [allProjectsList, visibleColumnProjectIds]);
+    },
+    [allProjectsList, visibleColumnProjectIds]
+  );
 
   const getSortedAndFilteredCollections = useCallback(() => {
     const filtered = collections.filter((collection) => {
@@ -96,7 +94,7 @@ export const useGenerationGridData = (
   }, [collections, searchTerm, typeFilter, advancedFilter, sortConfig]);
 
   const sortedAndFilteredCollections = getSortedAndFilteredCollections();
-  
+
   const allColumnProjectsSelected =
     allProjectsList.length > 0 && visibleColumnProjectIds.size === allProjectsList.length;
 
@@ -118,4 +116,4 @@ export const useGenerationGridData = (
     handleColumnProjectSelectionChange,
     handleSelectAllColumnProjects,
   };
-}; 
+};

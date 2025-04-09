@@ -1,77 +1,77 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateCollection } from "../../../services/api"; // Импортируем функцию API
 
 export const useCollectionActions = (setCollections) => {
   const queryClient = useQueryClient();
   const [fieldSaveStatus, setFieldSaveStatus] = useState({});
   const saveTimersRef = useRef({});
-  
-  // --- Мутация для обновления поля коллекции --- 
-  const { mutate: updateFieldMutate, isLoading, error } = useMutation({
-      mutationFn: updateCollection, // Функция из api.js
-      onSuccess: (updatedCollectionData, variables) => {
-        // variables содержит { collectionId, fieldType, ... }
-        const { collectionId, fieldType } = variables;
-        const timerKey = `${collectionId}-${fieldType}`;
-        
-        // Обновляем кэш грида (опционально, если /grid-data содержит эти поля)
-        // queryClient.invalidateQueries(['gridData']);
-        // Или обновляем вручную, если нужно
-        queryClient.setQueryData(['gridData'], (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            collections: oldData.collections.map(c => 
-              c.id === collectionId ? updatedCollectionData : c
-            )
-          };
-        });
 
-        // Устанавливаем статус "Сохранено"
-        setFieldSaveStatus((prev) => ({
-          ...prev,
-          [collectionId]: {
-            ...prev[collectionId],
-            [fieldType]: { saving: false, error: null, saved: true },
-          },
-        }));
-        
-        // Запускаем таймер для сброса статуса "Сохранено"
-        clearTimeout(saveTimersRef.current[timerKey]); // Очищаем предыдущий таймер, если есть
-        saveTimersRef.current[timerKey] = setTimeout(() => {
-          setFieldSaveStatus((prev) => {
-            // Проверяем, что статус все еще saved перед сбросом
-            if (prev[collectionId]?.[fieldType]?.saved) {
-              const newStatus = { ...prev };
-              if (newStatus[collectionId]) {
-                  newStatus[collectionId] = { ...newStatus[collectionId] }; // Копируем объект коллекции
-                  delete newStatus[collectionId][fieldType]; // Удаляем статус для этого поля
-                  // Если у коллекции больше нет статусов, удаляем и ее
-                  if (Object.keys(newStatus[collectionId]).length === 0) {
-                     delete newStatus[collectionId];
-                  }
-              }    
-              return newStatus;
+  // --- Мутация для обновления поля коллекции ---
+  const { mutate: updateFieldMutate } = useMutation({
+    mutationFn: updateCollection, // Функция из api.js
+    onSuccess: (updatedCollectionData, variables) => {
+      // variables содержит { collectionId, fieldType, ... }
+      const { collectionId, fieldType } = variables;
+      const timerKey = `${collectionId}-${fieldType}`;
+
+      // Обновляем кэш грида (опционально, если /grid-data содержит эти поля)
+      // queryClient.invalidateQueries(['gridData']);
+      // Или обновляем вручную, если нужно
+      queryClient.setQueryData(["gridData"], (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          collections: oldData.collections.map((c) =>
+            c.id === collectionId ? updatedCollectionData : c
+          ),
+        };
+      });
+
+      // Устанавливаем статус "Сохранено"
+      setFieldSaveStatus((prev) => ({
+        ...prev,
+        [collectionId]: {
+          ...prev[collectionId],
+          [fieldType]: { saving: false, error: null, saved: true },
+        },
+      }));
+
+      // Запускаем таймер для сброса статуса "Сохранено"
+      clearTimeout(saveTimersRef.current[timerKey]); // Очищаем предыдущий таймер, если есть
+      saveTimersRef.current[timerKey] = setTimeout(() => {
+        setFieldSaveStatus((prev) => {
+          // Проверяем, что статус все еще saved перед сбросом
+          if (prev[collectionId]?.[fieldType]?.saved) {
+            const newStatus = { ...prev };
+            if (newStatus[collectionId]) {
+              newStatus[collectionId] = { ...newStatus[collectionId] }; // Копируем объект коллекции
+              delete newStatus[collectionId][fieldType]; // Удаляем статус для этого поля
+              // Если у коллекции больше нет статусов, удаляем и ее
+              if (Object.keys(newStatus[collectionId]).length === 0) {
+                delete newStatus[collectionId];
+              }
             }
-            return prev;
-          });
-          delete saveTimersRef.current[timerKey];
-        }, 2000);
-      },
-      onError: (err, variables) => {
-        const { collectionId, fieldType } = variables;
-        console.error(`Error auto-saving ${fieldType} for collection ${collectionId}:`, err);
-        const errorMsg = err.response?.data?.error || err.message || "Ошибка сохранения";
-        // Устанавливаем статус ошибки
-        setFieldSaveStatus((prev) => ({
-          ...prev,
-          [collectionId]: {
-            ...prev[collectionId],
-            [fieldType]: { saving: false, error: errorMsg, saved: false },
-          },
-        }));
-      }
+            return newStatus;
+          }
+          return prev;
+        });
+        delete saveTimersRef.current[timerKey];
+      }, 2000);
+    },
+    onError: (err, variables) => {
+      const { collectionId, fieldType } = variables;
+      console.error(`Error auto-saving ${fieldType} for collection ${collectionId}:`, err);
+      const errorMsg = err.response?.data?.error || err.message || "Ошибка сохранения";
+      // Устанавливаем статус ошибки
+      setFieldSaveStatus((prev) => ({
+        ...prev,
+        [collectionId]: {
+          ...prev[collectionId],
+          [fieldType]: { saving: false, error: errorMsg, saved: false },
+        },
+      }));
+    },
   });
 
   // Локальное обновление состояния (остается без изменений)
@@ -103,7 +103,7 @@ export const useCollectionActions = (setCollections) => {
       };
       const fieldKey = fieldKeyMap[fieldType];
       if (!fieldKey) return;
-      
+
       const timerKey = `${collectionId}-${fieldType}`;
       if (saveTimersRef.current[timerKey]) {
         clearTimeout(saveTimersRef.current[timerKey]);
@@ -119,12 +119,12 @@ export const useCollectionActions = (setCollections) => {
       }));
 
       // Вызываем мутацию
-      updateFieldMutate({ 
-          collectionId, 
-          collectionData: { [fieldKey]: currentValue },
-          // Передаем fieldType для использования в onSuccess/onError
-          fieldType: fieldType 
-      }); 
+      updateFieldMutate({
+        collectionId,
+        collectionData: { [fieldKey]: currentValue },
+        // Передаем fieldType для использования в onSuccess/onError
+        fieldType: fieldType,
+      });
     },
     [updateFieldMutate] // Зависимость от функции мутации
   );
@@ -148,4 +148,4 @@ export const useCollectionActions = (setCollections) => {
     handlePromptChange,
     handleAutoSaveCollectionField,
   };
-}; 
+};

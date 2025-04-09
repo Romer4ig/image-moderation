@@ -1,17 +1,10 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
-import { useQuery } from '@tanstack/react-query';
+import React, { createContext, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { fetchGridData } from "../services/api";
 
-const CollectionContext = createContext(null);
-
-export const useCollections = () => {
-  const context = useContext(CollectionContext);
-  if (!context) {
-    throw new Error("useCollections must be used within a CollectionProvider");
-  }
-  return context;
-};
+// Экспортируем контекст для использования в useCollections.js
+export const CollectionContext = createContext(null);
 
 export const CollectionProvider = ({ children }) => {
   const {
@@ -19,7 +12,7 @@ export const CollectionProvider = ({ children }) => {
     isLoading: isLoadingGrid,
     error: gridError,
   } = useQuery({
-    queryKey: ['gridData'],
+    queryKey: ["gridData"],
     queryFn: () => fetchGridData(),
     staleTime: 1000 * 60 * 1,
   });
@@ -41,12 +34,8 @@ export const CollectionProvider = ({ children }) => {
     isLoadingGrid,
     gridError,
     isConnected,
-    lastMessage
+    lastMessage,
   };
 
-  return (
-    <CollectionContext.Provider value={value}>
-      {children}
-    </CollectionContext.Provider>
-  );
-}; 
+  return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;
+};

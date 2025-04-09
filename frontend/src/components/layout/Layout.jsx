@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 const Layout = ({ children, isConnected }) => {
   return (
-    <div className="App"> 
+    <div className="App">
       <Navbar bg="primary" variant="dark" expand="lg" sticky="top">
         <Container fluid>
           <Navbar.Brand as={Link} to="/">
@@ -24,10 +24,10 @@ const Layout = ({ children, isConnected }) => {
       </Navbar>
 
       <Container fluid className="mt-4">
-        {children} 
+        {children}
       </Container>
     </div>
   );
 };
 
-export default Layout; 
+export default Layout;

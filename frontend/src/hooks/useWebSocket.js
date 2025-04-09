@@ -68,4 +68,4 @@ export const useWebSocket = (setCollections) => {
   }, [setCollections]);
 
   return { isConnected, lastMessage };
-}; 
+};

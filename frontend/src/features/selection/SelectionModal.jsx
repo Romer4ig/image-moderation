@@ -26,12 +26,8 @@ const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConf
     handleCheckboxChange,
   } = useSelectionData(show, collectionId, projectId);
 
-  const {
-    selectedAttempt,
-    isSubmitting,
-    handleAttemptClick,
-    handleConfirmSelection,
-  } = useAttemptSelection(collectionId, projectId, setTopRowItems, onSelectionConfirmed, onHide);
+  const { selectedAttempt, isSubmitting, handleAttemptClick, handleConfirmSelection } =
+    useAttemptSelection(collectionId, projectId, setTopRowItems, onSelectionConfirmed, onHide);
 
   const renderModalContent = () => {
     if (loading) {
@@ -59,7 +55,7 @@ const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConf
           projects={modalData.top_row_projects}
           selectedProjectIds={selectedProjectIds}
           handleCheckboxChange={handleCheckboxChange}
-                />
+        />
         <Row className="align-items-center mb-3">
           <Col md={8}>
             <Form.Control
