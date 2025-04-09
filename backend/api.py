@@ -300,146 +300,184 @@ def generate_batch():
         "errors": errors
     }), 207 if errors else 202 # 202 Accepted или 207 Multi-Status
 
+# ЗАМЕНИТЕ ЭТИМ КОДОМ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ get_grid_data в backend/api.py
+
 @generations_api.route('/grid-data', methods=['GET'])
 def get_grid_data():
-    """ Возвращает данные для построения основного грида UI. """
+    """ Возвращает данные для построения основного грида UI. 
+        Принимает необязательный параметр visible_project_ids (строка ID через запятую)
+        для фильтрации колонок и строк.
+    """
+    visible_project_ids_str = request.args.get('visible_project_ids')
+    visible_ids_list = None
+    if visible_project_ids_str:
+        # Получаем список ID из строки запроса
+        visible_ids_list = [pid.strip() for pid in visible_project_ids_str.split(',') if pid.strip()]
+        if not visible_ids_list:
+            # Если передан пустой список видимых ID, возвращаем пустые данные
+            return jsonify({'projects': [], 'collections': []})
+
     try:
-        # 1. Получаем все Проекты (для колонок)
-        projects = Project.query.order_by(Project.name).all()
-        projects_data = [p.to_dict() for p in projects]
+        # 1. Получаем Проекты (фильтруем по visible_ids_list, если он передан)
+        projects_query = Project.query.order_by(Project.name)
+        if visible_ids_list:
+            projects_query = projects_query.filter(Project.id.in_(visible_ids_list))
+        
+        # Сохраняем список проектов, которые будут в колонках ответа
+        projects_to_include = projects_query.all() 
+        projects_data = [p.to_dict() for p in projects_to_include]
 
-        # 2. Получаем все Коллекции (для строк) - TODO: Добавить пагинацию
-        collections = Collection.query.order_by(Collection.name).all()
-        collections_data = []
+        # 2. Получаем все Коллекции (фильтрация строк будет позже)
+        all_collections = Collection.query.order_by(Collection.name).all()
+        
+        collections_data_filtered = [] # Здесь будут только те коллекции, что пройдут фильтр
 
-        # 3. Для каждой коллекции собираем данные ячеек
-        for collection in collections:
+        # 3. Для каждой коллекции собираем данные ячеек ТОЛЬКО для видимых/запрошенных проектов
+        for collection in all_collections:
             collection_dict = collection.to_dict()
             cells = {}
-            
-            # --- Добавляем запрос для последней даты генерации --- 
+            has_relevant_data_in_visible_columns = False # Флаг для фильтрации строк
+
+            # Запрос для последней даты генерации (без изменений)
             last_gen_date_query = db.session.query(func.max(Generation.updated_at))\
                                          .filter(Generation.collection_id == collection.id)\
-                                         .scalar() # Получаем одно значение (дату или None)
-            
+                                         .scalar() 
             collection_dict['last_generation_at'] = last_gen_date_query.isoformat() + 'Z' if last_gen_date_query else None
-            # --- Конец добавления --- 
             
-            for project in projects:
+            # Цикл по проектам, которые ДОЛЖНЫ БЫТЬ в ответе (уже отфильтрованы)
+            for project in projects_to_include: 
                 cell_key = project.id
                 cell_data = {
-                    'status': 'not_generated', # Статус по умолчанию
+                    'status': 'not_generated', 
                     'generation_id': None,
                     'file_url': None,
                     'is_selected': False,
-                    'error_message': None # Добавляем для единообразия
+                    'error_message': None 
                 }
+                current_cell_is_relevant = False # Флаг для текущей ячейки
 
-                # Ищем выбранную обложку для этой пары (Collection, Project)
+                # --- Определение статуса и релевантности ячейки ---
+                # Ищем выбранную обложку
                 selected = SelectedCover.query.filter_by(
                     collection_id=collection.id, 
-                    project_id=project.id
+                    project_id=project.id 
                 ).first()
                 
-                generation_to_display = None
-                file_to_display = None
-                
-                # --- Логика для выбранной обложки --- 
                 if selected:
+                    # Логика для выбранной обложки... (как в предыдущем варианте)
                     cell_data['is_selected'] = True
                     generation_to_display = Generation.query.get(selected.generation_id)
-                    # Пытаемся получить конкретный файл, если он указан в SelectedCover
+                    file_to_display = None
                     if selected.generated_file_id:
-                         file_to_display = GeneratedFile.query.get(selected.generated_file_id)
-                    # Если файл не указан, но генерация есть, берем первый файл из этой генерации
+                        file_to_display = GeneratedFile.query.get(selected.generated_file_id)
                     elif generation_to_display:
-                         file_to_display = generation_to_display.generated_files.first()
+                        file_to_display = generation_to_display.generated_files.first()
                     
-                    # Устанавливаем URL и статус ТОЛЬКО если нашли файл и генерацию для выбранной обложки
                     if generation_to_display and file_to_display:
                         cell_data['generation_id'] = generation_to_display.id
                         cell_data['status'] = 'selected' 
                         cell_data['file_url'] = file_to_display.get_url()
                         cell_data['file_path'] = file_to_display.file_path
-                    # Если есть selected, но не нашли генерацию/файл (ошибка данных?), ставим статус error
+                        current_cell_is_relevant = True 
                     elif generation_to_display:
                         cell_data['generation_id'] = generation_to_display.id
                         cell_data['status'] = 'error'
                         cell_data['error_message'] = 'Selected cover data inconsistent (file missing?)' 
+                        current_cell_is_relevant = True 
                     else:
                         cell_data['status'] = 'error'
                         cell_data['error_message'] = 'Selected cover data inconsistent (generation missing?)'
+                        current_cell_is_relevant = True 
                         
-                # --- Логика для НЕвыбранных ячеек --- 
-                else:
-                    # Ищем последнюю генерацию для этой ячейки, чтобы определить статус
+                else: # Если НЕ выбрана, ищем последнюю генерацию
                     last_generation = Generation.query.filter_by(
                         collection_id=collection.id,
-                        project_id=project.id
-                    ).order_by(Generation.updated_at.desc()).first() # Используем updated_at для последней
+                        project_id=project.id 
+                    ).order_by(Generation.updated_at.desc()).first() 
                     
                     if last_generation:
                         cell_data['generation_id'] = last_generation.id
-                        # Статус зависит от статуса последней генерации, но URL не показываем
+                        # Определяем статус и релевантность на основе статуса генерации
                         if last_generation.status == GenerationStatus.COMPLETED:
                             cell_data['status'] = 'generated_not_selected'
+                            current_cell_is_relevant = True 
                         elif last_generation.status in [GenerationStatus.PENDING, GenerationStatus.QUEUED]:
                             cell_data['status'] = 'queued' 
+                            current_cell_is_relevant = True 
                         elif last_generation.status == GenerationStatus.FAILED:
                             cell_data['status'] = 'error'
                             cell_data['error_message'] = last_generation.error_message
-                        else: # Неизвестный статус?
+                            current_cell_is_relevant = True 
+                        else: # Неизвестный статус
                             cell_data['status'] = 'unknown' 
-                    # Если генераций вообще не было, статус остается 'not_generated' (установлен по умолчанию)
-
+                            current_cell_is_relevant = True # Считаем релевантным для отображения
+                
+                # Добавляем данные ячейки в словарь cells
                 cells[cell_key] = cell_data
-            
-            collection_dict['cells'] = cells
-            collections_data.append(collection_dict)
+                
+                # Если данные в этой ячейке релевантны, взводим флаг для всей строки
+                if current_cell_is_relevant:
+                    has_relevant_data_in_visible_columns = True 
+            # --- Конец цикла по проектам ---
 
+            # Просто добавляем коллекцию в итоговый список.
+            collection_dict['cells'] = cells
+            collections_data_filtered.append(collection_dict)
+        # --- Конец цикла по коллекциям ---
+
+        # Возвращаем отфильтрованные проекты и коллекции
         return jsonify({
-            'projects': projects_data,
-            'collections': collections_data
+            'projects': projects_data, 
+            'collections': collections_data_filtered 
         })
 
     except Exception as e:
         print(f"Error fetching grid data: {e}")
-        # logger.exception("Error fetching grid data") # Используйте логгер в продакшене
+        # logger.exception("Error fetching grid data") # Логирование в продакшене
         return jsonify({"error": "Failed to fetch grid data"}), 500
 
+# --- Остальной код API ... --- 
 @generations_api.route('/selection-data', methods=['GET'])
 def get_selection_data():
-    """ Возвращает данные для модального окна выбора обложки. """
+    """ Возвращает данные для модального окна выбора обложки. 
+        Принимает collection_id и project_ids (строка ID через запятую).
+        Также принимает initial_project_id для определения target_project.
+    """
     collection_id = request.args.get('collection_id')
-    project_id = request.args.get('project_id') # Проект, для которого показываем все попытки
+    project_ids_str = request.args.get('project_ids') # ID проектов для загрузки генераций
+    initial_project_id = request.args.get('initial_project_id') # ID проекта, для которого открыли окно
 
-    if not collection_id or not project_id:
-        return jsonify({"error": "Missing collection_id or project_id parameter"}), 400
+    # Убираем проверку только для project_id, проверяем все три
+    if not collection_id or not project_ids_str or not initial_project_id:
+        return jsonify({"error": "Missing collection_id, project_ids, or initial_project_id parameter"}), 400
+
+    # Парсим ID проектов
+    project_ids_list = [pid.strip() for pid in project_ids_str.split(',') if pid.strip()]
+    if not project_ids_list:
+         return jsonify({"error": "project_ids parameter cannot be empty"}), 400
 
     try:
-        # Проверяем существование основной коллекции и проекта
+        # Проверяем существование основной коллекции и начального проекта
         collection = Collection.query.get_or_404(collection_id)
-        target_project = Project.query.get_or_404(project_id)
+        # Ищем target_project по initial_project_id
+        target_project = Project.query.get_or_404(initial_project_id) 
         
         # 1. Получаем все проекты (для верхнего ряда модалки)
         all_projects = Project.query.order_by(Project.name).all()
         
-        # --- НОВОЕ: Получаем ID проектов, имеющих завершенные генерации для этой коллекции ---
+        # --- Получаем ID проектов, имеющих завершенные генерации для этой коллекции ---
         projects_with_completed_generations = db.session.query(distinct(Generation.project_id))\
             .filter(
                 Generation.collection_id == collection_id, 
                 Generation.status == GenerationStatus.COMPLETED
             )\
             .all()
-        # Преобразуем результат [(id1,), (id2,), ...] в список [id1, id2, ...]
         project_ids_with_generations = [pid[0] for pid in projects_with_completed_generations]
-        # --- Конец добавления --- 
-
+        
         # 2. Получаем выбранные обложки для этой коллекции по ВСЕМ проектам
         selected_covers_query = SelectedCover.query.filter_by(collection_id=collection_id)\
             .options(
                 selectinload(SelectedCover.generation) # Оставляем только загрузку самой генерации
-                # .selectinload(Generation.generated_files) # Убираем попытку загрузить динамическую коллекцию файлов здесь
                 ).all()
         
         selected_covers_map = {}
@@ -466,36 +504,42 @@ def get_selection_data():
                  'selected_cover': selected_covers_map.get(p.id)
              })
 
-        # 3. Получаем ВСЕ генерации (с файлами) для конкретной пары (collection_id, project_id)
-        generation_attempts = Generation.query.filter_by(
-            collection_id=collection_id,
-            project_id=project_id,
-            status=GenerationStatus.COMPLETED # Показываем только завершенные
-        ).order_by(Generation.created_at.desc()).all() # Убираем .options(...)
-        # .options(selectinload(Generation.generated_files)) <-- Убеждаемся, что это закомментировано/удалено
+        # 3. Получаем ВСЕ генерации (с файлами) для ЗАПРОШЕННЫХ project_ids
+        #    и сортируем по дате создания (новые первыми)
+        generation_attempts_query = Generation.query.filter(
+            Generation.collection_id == collection_id,
+            Generation.project_id.in_(project_ids_list), # Используем .in_()
+            Generation.status == GenerationStatus.COMPLETED # Добавляем сортировку
+        ).order_by(Generation.created_at.desc()) # Добавляем сортировку
+
+        generation_attempts = generation_attempts_query.all() 
 
         attempts_data = []
-        # Обновленная логика для обработки всех файлов
+        # Обработка файлов остается прежней
         for gen in generation_attempts:
-            for file in gen.generated_files.order_by(GeneratedFile.created_at): # <-- Здесь сработает lazy loading
+            # Добавляем project_id к данным файла, если это нужно фронтенду
+            origin_project_id = gen.project_id 
+            for file in gen.generated_files.order_by(GeneratedFile.created_at): 
                  attempts_data.append({
                      'generation_id': gen.id, 
                      'generated_file_id': file.id,
                      'file_url': file.get_url(),
-                     'created_at': file.created_at.isoformat() + 'Z'
+                     'created_at': file.created_at.isoformat() + 'Z',
+                     'origin_project_id': origin_project_id # Добавляем ID проекта-источника
                  })
 
         return jsonify({
             'collection': collection.to_dict(),
-            'target_project': target_project.to_dict(),
-            'top_row_projects': top_row_data, # Выбранные обложки по всем проектам
-            'generation_attempts': attempts_data, # Все попытки для выбранного проекта
-            # Добавляем новый список ID
+            # Возвращаем target_project на основе initial_project_id
+            'target_project': target_project.to_dict(), 
+            'top_row_projects': top_row_data, 
+            'generation_attempts': attempts_data, # Возвращаем единый, отсортированный список
             'project_ids_with_generations': project_ids_with_generations 
         })
 
     except Exception as e:
         print(f"Error fetching selection data: {e}")
+        # logger.exception("Error fetching selection data") # Используйте логгер
         return jsonify({"error": "Failed to fetch selection data"}), 500
 
 @generations_api.route('/select-cover', methods=['POST'])
