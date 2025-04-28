@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchSelectionData } from "../../../services/api"; // Импорт функции API
+import React from "react";
 
 export const useSelectionData = (show, collectionId, initialProjectId) => {
   // Состояние для выбранных ID проектов (для загрузки попыток)
@@ -27,7 +28,7 @@ export const useSelectionData = (show, collectionId, initialProjectId) => {
   ];
 
   const {
-    data: selectionQueryData, // Весь ответ от API
+    data: rawSelectionData, // Переименовываем, чтобы было понятно, что это сырые данные
     isLoading: loading, // Статус загрузки
     error, // Ошибка
     isFetching: loadingAttempts, // Индикатор перезагрузки при смене selectedProjectIds
@@ -50,15 +51,51 @@ export const useSelectionData = (show, collectionId, initialProjectId) => {
     // keepPreviousData: true, // Можно включить для более плавного UX при смене фильтров
   });
 
-  // Обновляем topRowItems из данных запроса
+  // --- Трансформация данных ---
+  const mappedModalData = React.useMemo(() => {
+    if (!rawSelectionData) return null;
+
+    // 1. Маппинг generation_attempts
+    const mappedAttempts = (rawSelectionData.generation_attempts || []).map(attempt => {
+      const firstFile = attempt.generated_files?.[0];
+      return {
+        ...attempt, // Копируем все остальные поля попытки
+        // Извлекаем нужные поля из первого файла
+        generated_file_id: firstFile?.id, 
+        file_url: firstFile?.url,
+        // Извлекаем generation_id (который на самом деле id попытки)
+        generation_id: attempt.id, 
+        // Добавляем недостающие, если нужно (напр., project_id из самой попытки)
+        // project_id: attempt.project_id, // Уже должно быть в attempt
+      };
+    }).filter(attempt => attempt.generated_file_id && attempt.file_url && attempt.generation_id); // Убираем попытки без файлов ИЛИ ID
+
+    // 2. Маппинг top_row_projects
+    const mappedTopRowProjects = (rawSelectionData.top_row_projects || []).map(project => ({
+        ...project, // Копируем остальные поля проекта
+        project_id: project.id, // Переименовываем id -> project_id
+        project_name: project.name, // Переименовываем name -> project_name
+        // TODO: Добавить поле с URL выбранной обложки, если бэкенд его присылает
+        // selected_cover_url: project.selected_cover_url, 
+    }));
+
+    return {
+        ...rawSelectionData, // Копируем остальные поля ответа (напр., collection, target_project)
+        generation_attempts: mappedAttempts, // Заменяем на смапленные попытки
+        top_row_projects: mappedTopRowProjects, // Заменяем на смапленные проекты для топ-роу
+    };
+
+  }, [rawSelectionData]);
+
+  // Обновляем topRowItems из ТРАНСФОРМИРОВАННЫХ данных
   useEffect(() => {
-    if (selectionQueryData?.top_row_projects) {
-      setTopRowItems(selectionQueryData.top_row_projects);
+    if (mappedModalData?.top_row_projects) {
+      setTopRowItems(mappedModalData.top_row_projects);
     } else if (!show) {
       // Сбрасываем при закрытии, если данных нет
       setTopRowItems([]);
     }
-  }, [selectionQueryData, show]);
+  }, [mappedModalData, show]); // Зависимость от mappedModalData
 
   // Обработчик изменения чекбоксов (остается)
   const handleCheckboxChange = useCallback(
@@ -74,6 +111,9 @@ export const useSelectionData = (show, collectionId, initialProjectId) => {
           // Если после снятия галочки не осталось ни одного проекта, оставляем initialProjectId
           if (newSelectedIds.length === 0 && initialProjectId) {
             newSelectedIds = [initialProjectId];
+          } else if (newSelectedIds.length === 0 && !initialProjectId) {
+            // Если initialProjectId нет, то оставляем пустым - позволяет снять все галочки
+            newSelectedIds = []; 
           }
         }
         return newSelectedIds;
@@ -82,17 +122,22 @@ export const useSelectionData = (show, collectionId, initialProjectId) => {
     [initialProjectId]
   ); // Добавляем initialProjectId в зависимости
 
+  // Извлекаем ID сохраненного файла для активного проекта
+  const persistedSelectedFileId = mappedModalData?.target_project?.selected_generated_file_id || null;
+
   return {
-    // Данные из useQuery
-    modalData: selectionQueryData, // Весь объект ответа
-    loading, // Начальная загрузка
+    // Возвращаем ТРАНСФОРМИРОВАННЫЕ данные
+    modalData: mappedModalData, 
+    loading, 
     error,
-    displayedAttempts: selectionQueryData?.generation_attempts || [], // Попытки
-    loadingAttempts, // Индикатор перезагрузки
+    // Получаем смапленные попытки из modalData
+    displayedAttempts: mappedModalData?.generation_attempts || [], 
+    loadingAttempts, 
     // Локальные состояния и обработчики
-    topRowItems,
+    topRowItems, // topRowItems теперь должен содержать selected_cover_url
     setTopRowItems, // Нужно для useAttemptSelection
     selectedProjectIds,
     handleCheckboxChange,
+    persistedSelectedFileId, // <-- Возвращаем ID сохраненного файла
   };
 };

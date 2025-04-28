@@ -61,7 +61,7 @@ class Collection(db.Model):
     __tablename__ = 'collections'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    type = db.Column(db.String(50), nullable=True, index=True) # TODO: Use db.Enum(CollectionType)
+    type = db.Column(db.String(50), nullable=True, index=True) # Сделали nullable=True
     collection_positive_prompt = db.Column(db.Text, nullable=True, default='')
     collection_negative_prompt = db.Column(db.Text, nullable=True, default='')
     comment = db.Column(db.Text, nullable=True)
@@ -100,7 +100,7 @@ class Generation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     project = db.relationship('Project', back_populates='generations')
     collection = db.relationship('Collection', back_populates='generations')
-    generated_files = db.relationship('GeneratedFile', back_populates='generation', lazy='dynamic', cascade="all, delete-orphan")
+    generated_files = db.relationship('GeneratedFile', back_populates='generation', lazy='selectin', cascade="all, delete-orphan")
     # selected_in = db.relationship('SelectedCover', backref='generation', uselist=False, cascade="all, delete-orphan") # Может вызвать проблемы при удалении
 
     def __repr__(self):
@@ -176,3 +176,21 @@ class SelectedCover(db.Model):
 
     def __repr__(self):
         return f'<SelectedCover C:{self.collection_id} P:{self.project_id} G:{self.generation_id}>'
+
+# --- Индексы ---
+# Индексы для Collection
+db.Index('ix_collections_name', Collection.name)
+db.Index('ix_collections_created_at', Collection.created_at)
+db.Index('ix_collections_updated_at', Collection.updated_at) # Если будет сортировка по updated_at
+
+# Индекс для Generation для быстрого поиска последней генерации для пары collection/project
+db.Index('ix_generation_collection_project_updated', 
+         Generation.collection_id, 
+         Generation.project_id, 
+         Generation.updated_at.desc()) # .desc() важно для ORDER BY updated_at DESC LIMIT 1
+
+# Индекс для SelectedCover для связи с GeneratedFile
+db.Index('ix_selected_covers_generated_file_id', SelectedCover.generated_file_id)
+
+# Можно добавить простой индекс на Generation.created_at, если он будет часто использоваться для сортировки/фильтрации
+# db.Index('ix_generations_created_at', Generation.created_at)

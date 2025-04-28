@@ -4,11 +4,11 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProjectsPage from "./pages/ProjectsPage";
 import Layout from "./components/layout/Layout";
 import { CollectionProvider } from "./context/CollectionContext";
-import { useCollections } from "./context/useCollections";
+import { useWebSocketContext } from "./context/WebSocketContext";
 import "./styles/App.css";
 
 const AppContent = () => {
-  const { isConnected, lastMessage } = useCollections();
+  const { isConnected, lastMessage } = useWebSocketContext();
 
   return (
     <Layout isConnected={isConnected}>
@@ -18,7 +18,6 @@ const AppContent = () => {
           element={
             <>
               <h1>Сравнение и выбор обложек</h1>
-              {/* Условное отображение отладочного блока */}
               {import.meta.env.VITE_SHOW_DEBUG === "true" && lastMessage && (
                 <div
                   style={{
@@ -28,7 +27,7 @@ const AppContent = () => {
                     fontSize: "0.8em",
                   }}
                 >
-                  <strong>Last WS Update:</strong>
+                  <strong>Last WS Update (Context):</strong>
                   <pre style={{ maxHeight: "100px", overflowY: "auto" }}>
                     {JSON.stringify(lastMessage, null, 2)}
                   </pre>

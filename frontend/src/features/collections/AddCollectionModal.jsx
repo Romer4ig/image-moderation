@@ -42,12 +42,12 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
 
     const validRows = rows.filter((row) => {
       const numericId = parseInt(row.id, 10);
-      return !isNaN(numericId) && row.name && row.type;
+      return !isNaN(numericId) && row.name;
     });
 
     const invalidFormatRows = rows.filter((row) => row.id && isNaN(parseInt(row.id, 10)));
     const missingFieldsRows = rows.filter(
-      (row) => !(row.id && row.name && row.type) && (row.id || row.name || row.type)
+      (row) => !(row.id && row.name) && (row.id || row.name || row.type)
     );
 
     if (
@@ -57,7 +57,7 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
     ) {
       setSubmitResults({
         success: 0,
-        errors: ["Нет данных для добавления. Заполните ID (число), Название и Тип."],
+        errors: ["Нет данных для добавления. Заполните ID (число) и Название."],
       });
       setShowResults(true);
       setIsSubmitting(false);
@@ -71,7 +71,7 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
     }
     if (missingFieldsRows.length > 0) {
       results.errors.push(
-        `Обнаружены не полностью заполненные строки (требуется ID, Название, Тип): ${missingFieldsRows.length} шт.`
+        `Обнаружены не полностью заполненные строки (требуется ID, Название): ${missingFieldsRows.length} шт.`
       );
     }
 
@@ -138,7 +138,7 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
 
         <Row className="mb-2 fw-semibold gx-2">
           <Col xs={2}>ID*</Col>
-          <Col xs={3}>Тип*</Col>
+          <Col xs={3}>Тип</Col>
           <Col xs={6}>Название*</Col>
           <Col xs={1}></Col>
         </Row>
@@ -162,9 +162,8 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
                 value={row.type}
                 onChange={(e) => handleRowChange(index, "type", e.target.value)}
                 disabled={isSubmitting}
-                required
               >
-                <option value="" disabled>
+                <option value="" >
                   Выберите тип...
                 </option>
                 {collectionTypes.map((t) => (
@@ -220,7 +219,7 @@ const AddCollectionModal = ({ show, onHide, onSuccess }) => {
           onClick={handleBatchSubmit}
           disabled={
             isSubmitting ||
-            rows.filter((r) => r.id && r.name && r.type && !isNaN(parseInt(r.id, 10))).length === 0
+            rows.filter((r) => r.id && r.name && !isNaN(parseInt(r.id, 10))).length === 0
           }
         >
           {isSubmitting ? (

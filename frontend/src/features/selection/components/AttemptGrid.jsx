@@ -6,6 +6,7 @@ const AttemptGrid = ({
   loadingAttempts,
   displayedAttempts,
   selectedAttempt,
+  persistedSelectedFileId,
   handleAttemptClick,
 }) => {
   if (loadingAttempts) {
@@ -29,7 +30,7 @@ const AttemptGrid = ({
                 src={attempt.file_url}
                 alt={`Attempt ${attempt.generation_id} (Project ${attempt.origin_project_id})`}
               />
-              {selectedAttempt.generated_file_id === attempt.generated_file_id && (
+              {persistedSelectedFileId === attempt.generated_file_id && (
                 <CheckCircleFill
                   size={24}
                   className="text-primary position-absolute top-0 end-0 m-1 bg-white rounded-circle"

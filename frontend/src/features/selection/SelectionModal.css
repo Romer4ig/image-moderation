@@ -1,3 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --primary: #2563EB;
+  --primary-hover: #1d4fd7;
+  --primary-light: #3B82F6;
+  --modal-bg: #fff;
+  --modal-shadow: 0 8px 32px rgba(16, 24, 40, 0.18);
+  --modal-radius: 16px;
+  --card-radius: 12px;
+  --card-shadow: 0 2px 8px rgba(16, 24, 40, 0.10);
+  --secondary-bg: #F3F4F6;
+  --text-main: #111827;
+  --text-secondary: #6B7280;
+  --button-radius: 8px;
+  --button-height: 40px;
+  --button-font: 500 16px 'Inter', sans-serif;
+  --gap-main: 24px;
+  --gap-small: 16px;
+}
+
+body, .modal-content, .modal, .modal-title, .modal-body, .modal-footer {
+  font-family: 'Inter', sans-serif;
+  color: var(--text-main);
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -12,14 +38,14 @@
 }
 
 .modal-content {
-  background-color: white;
-  padding: 25px;
-  border-radius: 5px;
-  max-width: 90%;
-  max-height: 90%;
+  background: var(--modal-bg);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--modal-shadow);
+  padding: 32px 32px 24px 32px;
+  min-width: 600px;
+  max-width: 90vw;
+  max-height: 90vh;
   overflow-y: auto;
-  position: relative;
-  min-width: 600px; /* Минимальная ширина для удобства */
 }
 
 .modal-close-button {
@@ -32,36 +58,81 @@
   cursor: pointer;
 }
 
+.modal-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.modal-footer {
+  border-top: none;
+  padding-top: 0;
+  gap: var(--gap-small);
+}
+
+
+.btn-primary, button.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+.btn-primary:hover, button.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary, button.btn-secondary {
+  background: var(--secondary-bg);
+  color: var(--primary);
+  border: none;
+  font-weight: 500;
+}
+.btn-secondary:hover, button.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
 .top-row {
   display: flex;
-  flex-wrap: nowrap; /* Не переносить */
-  overflow-x: auto; /* Горизонтальная прокрутка, если много проектов */
-  padding-bottom: 15px; /* Отступ для скроллбара */
-  border-bottom: 1px solid #eee;
-  margin-bottom: 20px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: var(--gap-main);
+  gap: var(--gap-small);
 }
 
 .top-row-item {
-  border: 1px solid #ccc;
-  padding: 5px;
-  margin-right: 10px;
+  border: 2px solid #e5e7eb;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: var(--card-shadow);
+  padding: 8px 8px 4px 8px;
+  min-width: 120px;
   text-align: center;
-  min-width: 120px; /* Минимальная ширина для слота проекта */
+  transition: border 0.2s, box-shadow 0.2s;
 }
-
+.top-row-item.target-project {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
 .top-row-item .project-name {
-  font-size: 0.8em;
-  color: #555;
-  margin-bottom: 5px;
-  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-weight: 500;
 }
-
 .top-row-item .thumbnail.small {
   max-width: 100px;
   max-height: 100px;
   object-fit: contain;
+  border-radius: 0;
+  background: var(--secondary-bg);
 }
-
 .top-row-item .placeholder {
   height: 100px;
   width: 100px;
@@ -71,63 +142,87 @@
   background-color: #f0f0f0;
   color: #999;
   font-size: 0.9em;
-}
-
-.top-row-item.target-project {
-  border-color: blue; /* Подсветка текущего проекта */
-}
-
-.top-row-item.preview img {
-  outline: 2px dashed orange; /* Пометка предпросмотра */
+  border-radius: 0;
 }
 
 .bottom-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Адаптивная сетка */
-  gap: 10px;
-  margin-bottom: 20px;
-  max-height: 40vh; /* Ограничиваем высоту для скроллинга */
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--gap-small);
+  margin-bottom: var(--gap-main);
+  max-height: 40vh;
   overflow-y: auto;
-  padding: 5px;
-  border: 1px solid #eee;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--card-radius);
+  background: #fff;
 }
 
 .bottom-grid-item {
   cursor: pointer;
-  transition:
-    transform 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out;
-  border: 3px solid transparent; /* Прозрачная рамка для стабильности layout */
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: var(--card-shadow);
   width: 100%;
   height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden; /* Скрываем то, что не помещается */
+  overflow: hidden;
+  transition: border 0.2s, box-shadow 0.2s, transform 0.2s;
 }
-
 .bottom-grid-item:hover {
-  transform: scale(1.03);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: scale(1.04);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.10);
+  border-color: var(--primary-light);
+}
+.selected-border, .bottom-grid-item.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 .bottom-grid-item img {
-  display: block; /* Убирает лишние отступы под картинкой */
+  display: block;
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: contain; /* Вписываем изображение с сохранением пропорций */
-  margin: auto; /* Центрируем изображение внутри flex-контейнера */
-}
-
-.selected-border {
-  border-color: var(--bs-primary); /* Используем primary цвет бутстрапа для рамки */
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5); /* Эффект свечения как у фокуса */
+  object-fit: contain;
+  margin: auto;
+  border-radius: 0;
 }
 
 .clickable {
   cursor: pointer;
+}
+
+/* Комментарий и фильтры */
+.row.align-items-center.mb-3 {
+  margin-bottom: var(--gap-main) !important;
+}
+.form-control {
+  border-radius: 8px;
+  font-size: 15px;
+  padding: 10px 14px;
+  background: #F9FAFB;
+  border: 1px solid #e5e7eb;
+  color: var(--text-main);
+}
+
+/* Адаптивность */
+@media (max-width: 900px) {
+  .modal-content {
+    padding: 16px 8px 16px 8px;
+    min-width: 320px;
+  }
+  .top-row {
+    gap: 8px;
+  }
+  .bottom-grid {
+    gap: 8px;
+    padding: 4px;
+  }
 }
 
 /* --- Стили для рефакторинга с react-bootstrap --- */

@@ -4,10 +4,9 @@ import { selectCover } from "../../../services/api"; // Импорт функц�
 
 export const useAttemptSelection = (
   collectionId,
-  projectId,
+  activeProjectId,
   setTopRowItems,
-  onSelectionConfirmed,
-  onHide
+  onSelectionConfirmed
 ) => {
   const queryClient = useQueryClient();
   const [selectedAttempt, setSelectedAttempt] = useState({
@@ -21,57 +20,70 @@ export const useAttemptSelection = (
     mutationFn: selectCover,
     onSuccess: () => {
       // Инвалидируем кэши после успешного выбора
-      queryClient.invalidateQueries(["gridData"]);
-      // Инвалидируем кэш для текущей модалки, если нужно обновить topRowItems из API
-      // queryClient.invalidateQueries(['selectionData', collectionId, projectId]);
+      queryClient.invalidateQueries({ queryKey: ["gridData"] });
+      // Инвалидируем кэш для текущей модалки, чтобы обновить topRowItems
+      // (Важно делать это *после* успешного ответа, чтобы API вернул обновленные данные)
+      queryClient.invalidateQueries({ queryKey: ["selectionData", collectionId, activeProjectId]});
 
       console.log("Selection confirmed successfully via mutation");
       onSelectionConfirmed(); // Внешний callback
-      onHide(); // Закрываем модалку
     },
     onError: (err) => {
       console.error("Error confirming selection via mutation:", err);
       alert(`Ошибка при сохранении выбора: ${err.response?.data?.error || err.message}`);
-      // isSubmitting автоматически станет false
     },
   });
 
   const handleAttemptClick = useCallback(
     (attempt) => {
+      // --- УБИРАЕМ ПРОВЕРКУ НА ACTIVEPROJECTID ---
+      // if (attempt.project_id !== activeProjectId) {
+      //     console.warn(`Attempt ${attempt.id} clicked, but it belongs to project ${attempt.project_id}, while active project is ${activeProjectId}. Ignoring click.`);
+      //     return; 
+      // }
+      // --- КОНЕЦ УДАЛЕНИЯ ---
+      
       setSelectedAttempt({
         generation_id: attempt.generation_id,
         generated_file_id: attempt.generated_file_id,
         file_url: attempt.file_url,
       });
+      // Обновляем превью в верхнем ряду для АКТИВНОГО проекта
       setTopRowItems((prevItems) =>
         prevItems.map((item) =>
-          item.project_id === projectId
-            ? { ...item, selected_cover: { ...attempt, isPreview: true } }
+          item.project_id === activeProjectId
+            ? { ...item, selected_cover_url: attempt.file_url } // Используем URL напрямую
             : item
         )
       );
     },
-    [projectId, setTopRowItems]
+    [activeProjectId, setTopRowItems] // Добавляем activeProjectId в зависимости
   );
 
   const handleConfirmSelection = useCallback(async () => {
-    if (!selectedAttempt.generation_id) {
+    if (!selectedAttempt.generated_file_id) { // Проверяем generated_file_id, т.к. generation_id может быть не уникальным между проектами
       alert("Пожалуйста, выберите изображение из нижнего списка.");
       return;
     }
 
-    // Вызываем мутацию
+    // Вызываем мутацию, используя activeProjectId
+    console.log("Confirming selection with:", {
+        collectionId,
+        projectId: activeProjectId,
+        generationId: selectedAttempt.generation_id,
+        generatedFileId: selectedAttempt.generated_file_id,
+      }); // <-- Добавляем лог перед вызовом мутации
     confirmSelectionMutate({
-      collectionId,
-      projectId,
+      collectionId: String(collectionId), // <--- Преобразуем в строку
+      projectId: activeProjectId, // <--- Используем activeProjectId!
       generationId: selectedAttempt.generation_id,
       generatedFileId: selectedAttempt.generated_file_id,
     });
-  }, [collectionId, projectId, selectedAttempt, confirmSelectionMutate]);
+  }, [collectionId, activeProjectId, selectedAttempt, confirmSelectionMutate]); // Добавляем activeProjectId в зависимости
 
   return {
     selectedAttempt,
-    isSubmitting, // Передаем isLoading из мутации
+    isSubmitting, 
     handleAttemptClick,
     handleConfirmSelection,
   };

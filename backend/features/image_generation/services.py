@@ -128,11 +128,7 @@ def process_generation_request(pairs: list[dict]) -> dict:
                  continue # Переходим к следующей паре
 
             # 4. Формируем тело запроса к планировщику
-            scheduler_payload = {
-                "request": final_params,
-                "callback_url": callback_url,
-                "priority": 10 # Пример
-            }
+            scheduler_payload = { **final_params, "callback_url": callback_url }
 
             # 5. Вызываем API планировщика
             logger.info(f"Sending request to scheduler for generation {internal_generation_id}...")
@@ -270,14 +266,15 @@ def process_scheduler_callback(generation_id: str,
             logger.info(f"Ensured directory exists: {generation_files_dir}")
 
             # --- Обработка файлов --- 
-            # Оставляем только логику для request.files (объекты FileStorage)
+            # files теперь dict, где значения — списки файлов
             if files:
-                 logger.info(f"Processing {len(files)} files from request.files...")
-                 for field_name, file_storage in files.items():
+                total_files = sum(len(file_list) for file_list in files.values())
+                logger.info(f"Processing {total_files} files from request.files...")
+                for field_name, file_list in files.items():
+                    for file_storage in file_list:
                       if not file_storage or not file_storage.filename:
                            logger.warning(f"Skipping empty file field '{field_name}' for {generation_id}")
                            continue
-                      
                       original_filename = file_storage.filename
                       # Генерируем безопасное имя
                       filename_base = uuid.uuid4().hex
@@ -316,7 +313,6 @@ def process_scheduler_callback(generation_id: str,
                            logger.error(f"Error creating GeneratedFile record for {original_filename}: {db_err}")
                            db.session.rollback() # Откатываем добавление этого файла
                            continue # Пропускаем этот файл
-            
             else:
                  # Статус 'done', но файлов нет в request.files
                  logger.warning(f"Callback for {generation_id} is 'done' but no files were found in request.files.")

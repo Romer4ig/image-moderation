@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import {
   Accordion,
   Form,
@@ -9,8 +9,11 @@ import {
   ButtonGroup,
   Button,
   Spinner,
+  ToastContainer,
+  Toast,
 } from "react-bootstrap";
-import { SortDown, SortUp, FunnelFill, TagFill } from "react-bootstrap-icons";
+import { SortDown, SortUp, FunnelFill, TagFill, Upload } from "react-bootstrap-icons";
+import { importCollectionsCSV } from "../../../services/api";
 
 const GridControls = ({
   // Состояния и обработчики для опций генерации
@@ -45,10 +48,58 @@ const GridControls = ({
   handleGenerateSelected,
   isSubmittingGenerations,
   selectedCollectionIds,
+  generationStatusFilter,
+  setGenerationStatusFilter,
+  onImportSuccess,
 }) => {
+  const fileInputRef = useRef(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importToast, setImportToast] = useState({ show: false, message: "", variant: "success" });
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportToast({ show: false, message: "", variant: "success" });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const result = await importCollectionsCSV(formData);
+      setImportToast({
+        show: true,
+        variant: "success",
+        message: `Импорт завершен: Добавлено ${result.added_count}, Пропущено дубликатов: ${result.skipped_duplicates}, Ошибки: ${result.skipped_errors}`,
+      });
+      if (result.added_count > 0 && typeof onImportSuccess === 'function') {
+        onImportSuccess();
+      }
+      console.log("Import result:", result);
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || error.message || "Неизвестная ошибка импорта";
+      setImportToast({ show: true, variant: "danger", message: `Ошибка импорта: ${errorMsg}` });
+      console.error("Error importing CSV:", error);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <>
-      <Accordion defaultActiveKey={["1"]} alwaysOpen className="mb-3">
+      <Accordion
+        defaultActiveKey={["1"]}
+        alwaysOpen
+        className="mb-3 generation-grid-accordion"
+      >
         <Accordion.Item eventKey="0">
           <Accordion.Header>Параметры генерации</Accordion.Header>
           <Accordion.Body>
@@ -59,6 +110,7 @@ const GridControls = ({
               label={`Все проекты (${allProjectsList.length})`}
               checked={allGenerationProjectsSelected}
               onChange={(e) => handleSelectAllGenerationProjects(e.target.checked)}
+              className="figma-checkbox"
             />
             <div className="mt-2 mb-3" style={{ maxHeight: "100px", overflowY: "auto" }}>
               {allProjectsList.map((project) => (
@@ -72,6 +124,7 @@ const GridControls = ({
                     handleGenerationProjectSelectionChange(project.id, e.target.checked)
                   }
                   inline
+                  className="figma-checkbox"
                 />
               ))}
             </div>
@@ -89,6 +142,7 @@ const GridControls = ({
                   label={`Все колонки (${allProjectsList.length})`}
                   checked={allColumnProjectsSelected}
                   onChange={(e) => handleSelectAllColumnProjects(e.target.checked)}
+                  className="figma-checkbox"
                 />
                 <div className="mt-2" style={{ maxHeight: "100px", overflowY: "auto" }}>
                   {allProjectsList.map((project) => (
@@ -102,6 +156,7 @@ const GridControls = ({
                         handleColumnProjectSelectionChange(project.id, e.target.checked)
                       }
                       inline
+                      className="figma-checkbox"
                     />
                   ))}
                 </div>
@@ -114,6 +169,7 @@ const GridControls = ({
                   label="Positive Prompt"
                   checked={showPositivePrompt}
                   onChange={(e) => setShowPositivePrompt(e.target.checked)}
+                  className="figma-checkbox"
                 />
                 <Form.Check
                   type="checkbox"
@@ -121,6 +177,7 @@ const GridControls = ({
                   label="Negative Prompt"
                   checked={showNegativePrompt}
                   onChange={(e) => setShowNegativePrompt(e.target.checked)}
+                  className="figma-checkbox"
                 />
                 <Form.Check
                   type="checkbox"
@@ -128,6 +185,7 @@ const GridControls = ({
                   label="Комментарий"
                   checked={showCollectionComment}
                   onChange={(e) => setShowCollectionComment(e.target.checked)}
+                  className="figma-checkbox"
                 />
               </Col>
             </Row>
@@ -138,18 +196,16 @@ const GridControls = ({
                   <Dropdown.Toggle
                     variant="outline-secondary"
                     id="dropdown-sort"
-                    className="w-100 text-start"
+                    className="w-100 text-start figma-button figma-button-outline-secondary"
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    {sortConfig.direction === "ascending" ? (
-                      <SortUp className="me-1" />
-                    ) : (
-                      <SortDown className="me-1" />
-                    )}
+                    <span>
                     {{
                       created_at: "Дата создания",
                       name: "Название",
                       last_generation_at: "Дата генерации",
                     }[sortConfig.key] || "???"}
+                    </span>
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
                     <Dropdown.Item
@@ -213,17 +269,19 @@ const GridControls = ({
                   <Dropdown.Toggle
                     variant="outline-secondary"
                     id="dropdown-filter"
-                    className="w-100 text-start"
+                    className="w-100 text-start figma-button figma-button-outline-secondary"
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    <FunnelFill className="me-1" />
+                    <span>
                     {
                       {
                         all: "Все",
                         empty_positive: "Пустой Positive",
                         no_dynamic: "Нет Dynamic Prompts",
                         has_comment: "Есть комментарий",
-                      }[advancedFilter]
+                      }[advancedFilter] || "???"
                     }
+                    </span>
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
                     <Dropdown.Item
@@ -258,11 +316,13 @@ const GridControls = ({
                 <Dropdown size="sm">
                   <Dropdown.Toggle
                     variant="outline-secondary"
-                    id="dropdown-type"
-                    className="w-100 text-start"
+                    id="dropdown-type-filter"
+                    className="w-100 text-start figma-button figma-button-outline-secondary"
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    <TagFill className="me-1" />
+                    <span>
                     {typeFilter === "all" ? "Все типы" : typeFilter}
+                    </span>
                   </Dropdown.Toggle>
                   <Dropdown.Menu style={{ maxHeight: "200px", overflowY: "auto" }}>
                     <Dropdown.Item
@@ -289,42 +349,107 @@ const GridControls = ({
         </Accordion.Item>
       </Accordion>
 
-      <Row className="mb-3 align-items-center gx-2">
-        <Col md={8} lg={9}>
-          <InputGroup size="sm">
+      <Row className="mb-3 gx-2 align-items-center">
+        <Col md={5}>
+          <InputGroup size="sm" className="figma-search-group">
             <Form.Control
-              placeholder="Найти сборник..."
+              type="text"
+              placeholder="Найти сборник по ID или названию..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            <Button variant="primary">
+              Найти
+            </Button>
           </InputGroup>
         </Col>
-        <Col md={4} lg={3} className="text-end">
-          <ButtonGroup size="sm">
-            <Button variant="outline-primary" onClick={() => setShowAddModal(true)}>
-              Добавить
+        <Col md={4}>
+          <ButtonGroup className="w-100 figma-status-filter">
+            <Button
+              variant={generationStatusFilter === "all" ? "primary" : "outline-primary"}
+              className={generationStatusFilter === "all" ? "active" : ""}
+              onClick={() => setGenerationStatusFilter("all")}
+            >
+              Все
             </Button>
             <Button
-              variant="primary"
-              onClick={handleGenerateSelected}
-              disabled={
-                isSubmittingGenerations ||
-                selectedCollectionIds.size === 0 ||
-                projectsForGenerationIds.size === 0
-              }
-              title="Сгенерировать для выбранных коллекций и проектов (выбранных в параметрах генерации)"
+              variant={generationStatusFilter === "not_selected" ? "primary" : "outline-primary"}
+              className={generationStatusFilter === "not_selected" ? "active" : ""}
+              onClick={() => setGenerationStatusFilter("not_selected")}
             >
-              {isSubmittingGenerations ? (
-                <>
-                  <Spinner as="span" animation="border" size="sm" /> Запуск...
-                </>
-              ) : (
-                "Сгенерировать выбранные"
-              )}
+              Не выбрано
+            </Button>
+            <Button
+              variant={generationStatusFilter === "not_generated" ? "primary" : "outline-primary"}
+              className={generationStatusFilter === "not_generated" ? "active" : ""}
+              onClick={() => setGenerationStatusFilter("not_generated")}
+            >
+              Не сгенерировано
             </Button>
           </ButtonGroup>
         </Col>
+        <Col md={3} className="text-end">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+            accept=".csv"
+            disabled={isImporting}
+          />
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={handleImportClick}
+            disabled={isImporting}
+            className="me-2 figma-button figma-button-outline-secondary"
+          >
+            {isImporting ? (
+              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-1" />
+            ) : (
+              <Upload className="me-1" />
+            )}
+            Импорт CSV
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowAddModal(true)}
+            className="me-2 figma-button figma-button-primary"
+          >
+            Добавить сборник
+          </Button>
+          <Button
+            variant="success"
+            size="sm"
+            onClick={handleGenerateSelected}
+            disabled={isSubmittingGenerations || selectedCollectionIds.size === 0}
+            className="figma-button figma-button-primary"
+          >
+            {isSubmittingGenerations ? (
+              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+            ) : (
+              "Сгенерировать"
+            )}
+          </Button>
+        </Col>
       </Row>
+      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1050 }}>
+        <Toast
+          onClose={() => setImportToast({ ...importToast, show: false })}
+          show={importToast.show}
+          delay={5000}
+          autohide
+          bg={importToast.variant}
+        >
+          <Toast.Header closeButton={true}>
+            <strong className="me-auto">Импорт CSV</strong>
+          </Toast.Header>
+          <Toast.Body className={importToast.variant === 'danger' ? 'text-white' : ''}>
+             {importToast.message}
+           </Toast.Body>
+        </Toast>
+      </ToastContainer>
     </>
   );
 };

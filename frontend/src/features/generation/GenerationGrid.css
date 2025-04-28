@@ -1,77 +1,87 @@
 /* Grid Styles */
-.grid-container {
+/* .grid-container { <-- FIGMA-DEV: Удалено, используем padding в JSX
   padding: 20px;
-}
+} */
 
-.grid-table-wrapper {
-  overflow-x: auto; /* Allow horizontal scrolling if many projects */
-}
+/* .grid-table-wrapper { <-- FIGMA-DEV: Удалено, Bootstrap Table responsive если нужно
+  overflow-x: auto;
+} */
 
 .generation-grid-table {
-  width: 100%;
-  border-collapse: collapse;
+  /* width: 100%; */ /* FIGMA-DEV: Управляется Bootstrap */
+  /* border-collapse: collapse; */ /* FIGMA-DEV: Управляется Bootstrap */
   margin-top: 20px;
-  table-layout: fixed; /* Helps with fixed column widths if needed */
+  /* table-layout: fixed; */ /* FIGMA-DEV: Может быть не нужно */
+  /* FIGMA-DEV: Стилизуем границы через bsPrefix или overrides, цвет из Figma `rgba(0, 0, 0, 0.2)` */
+  border-color: rgba(0, 0, 0, 0.2) !important; /* Пример override, лучше через SASS переменные */
 }
 
 .generation-grid-table th,
 .generation-grid-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  /* border: 1px solid #ddd; */ /* FIGMA-DEV: Управляется Bootstrap Table bordered, цвет выше */
+  padding: 8px; /* FIGMA-DEV: Уточнить по Figma, если отличается от Bootstrap */
   text-align: left;
   vertical-align: top;
 }
 
 .generation-grid-table th {
-  background-color: #f2f2f2;
+  /* background-color: #f2f2f2; */ /* FIGMA-DEV: Стилизуется по Figma в GridHeader */
   white-space: nowrap;
+  /* FIGMA-DEV: Добавляем стили для заголовка из Figma (пример) */
+  background-color: #f8f9fa; /* Bootstrap default, уточнить по Figma */
+  font-weight: 500; /* Пример */
+  /* padding: ... */ /* Пример */
 }
 
 /* Cell Styles */
-.grid-cell {
-  height: 150px; /* Example height */
-  width: 150px; /* Example width */
+/* .grid-cell { <-- FIGMA-DEV: Стили перенесены/заменены в GridCell.jsx
+  height: 150px;
+  width: 150px;
   text-align: center;
   vertical-align: middle;
-  position: relative; /* For potential overlays */
+  position: relative;
+} */
+
+/* .grid-cell.clickable { <-- FIGMA-DEV: cursor управляется в JSX
+  cursor: pointer;
+} */
+
+/* FIGMA-DEV: Заменяем классы фона на более точные по Figma */
+.cell-not-generated {
+  background-color: #b43000; /* FIGMA: 40:2343 > 2:61 > 4:254 > 4:619 fill */
+}
+.cell-generated-not-selected {
+  background-color: #b78c00; /* FIGMA: 40:2343 > 26:4395 > 2:38 > 4:610 fill */
 }
 
-.grid-cell.clickable {
-  cursor: pointer; /* Indicate clickable only when applicable */
-}
-
-.grid-cell.not-generated {
-  background-color: #f8f8f8;
-  color: #999;
-}
-
-.grid-cell.queued {
+/* .grid-cell.queued { <-- FIGMA-DEV: Используем bg-warning bg-opacity-25 в JSX
   background-color: #eef;
   color: #339;
-}
+} */
 
-.grid-cell.error {
-  background-color: #fee;
+.grid-cell.error { /* FIGMA-DEV: Оставляем для текста ошибки, фон из JSX */
+  /* background-color: #fee; */
   color: #a33;
   font-size: 0.9em;
   overflow: hidden;
 }
 
-.grid-cell.selected {
+/* .grid-cell.selected { <-- FIGMA-DEV: Удаляем outline, индикатор - иконка
   outline: 3px solid blue;
   outline-offset: -3px;
-}
+} */
 
-.grid-cell img.thumbnail {
+/* .grid-cell img.thumbnail { <-- FIGMA-DEV: Стили Image в GridCell.jsx
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   display: block;
-  margin: auto; /* Центрирование картинки, если ячейка больше */
-}
+  margin: auto;
+} */
 
 /* Styles for filters */
-.filters {
+/* FIGMA-DEV: Все стили ниже удалены, т.к. используются компоненты React-Bootstrap в GridControls.jsx */
+/* .filters {
   padding: 10px 0;
   border-bottom: 1px solid #eee;
 }
@@ -119,4 +129,180 @@
 .action-buttons button:disabled {
   background-color: #ccc;
   cursor: default;
+} */
+
+/* FIGMA-DEV: Стили для Аккордеона */
+.generation-grid-accordion .accordion-item {
+  border-color: rgba(0, 0, 0, 0.13) !important; /* FIGMA: stroke_EN3S0Q */
+  border-radius: 4px !important; /* FIGMA: borderRadius 4px */
+}
+.generation-grid-accordion .accordion-button { /* Стили для заголовка (неактивный) */
+  padding: 16px 20px; /* FIGMA: layout_ZCJHGS padding */
+}
+.generation-grid-accordion .accordion-button:not(.collapsed) { /* Стили для активного заголовка */
+  background-color: #E7F1FF !important; /* FIGMA: fill_H9AKU1 */
+  color: #0C63E4 !important; /* FIGMA: fill_NU7XAO */
+  box-shadow: none; /* Убираем стандартную тень Bootstrap */
+}
+.generation-grid-accordion .accordion-button::after { /* Стили для иконки */
+  /* Можно кастомизировать иконку, если стандартная не подходит */
+  filter: brightness(0) saturate(100%) invert(34%) sepia(94%) saturate(3424%) hue-rotate(211deg) brightness(94%) contrast(96%); /* Примерный цвет #0C63E4 для иконки */
+}
+.generation-grid-accordion .accordion-button:not(.collapsed)::after {
+   filter: none; /* Убираем фильтр для активного состояния, если иконка SVG */
+   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230C63E4'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e"); /* Переопределяем иконку Bootstrap на нужный цвет */
+}
+.generation-grid-accordion .accordion-body {
+  padding: 16px 20px; /* FIGMA: layout_X9LS8W padding */
+}
+
+/* FIGMA-DEV: Стили для кастомных чекбоксов */
+.form-check-input.figma-checkbox {
+  border-color: #ABB5BE; /* FIGMA: stroke_TSHSR4 */
+  border-radius: 2px; /* FIGMA: borderRadius 2px */
+}
+.form-check-input.figma-checkbox:checked {
+  background-color: #007AFF; /* FIGMA: fill_UZ4GEA */
+  border-color: #007AFF;
+  /* background-image: ...; */ /* FIGMA-DEV: SVG иконка галочки из Figma I40:2315;3888:1044;1146:35 */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+}
+.form-check-input.figma-checkbox:focus {
+  box-shadow: none; /* Убираем стандартную тень Bootstrap */
+}
+
+/* FIGMA-DEV: Стили для кнопок (Dropdown Toggle, Action Buttons) */
+.btn.figma-button {
+  padding: 10px 16px; /* FIGMA: layout_CO65OX padding */
+  border-radius: 6px; /* FIGMA: borderRadius 6px */
+  font-weight: 600; /* FIGMA: style_URC4D8 fontWeight */
+}
+.btn.figma-button-primary { /* Для кнопок "Добавить", "Сгенерировать" */
+  background-color: #007AFF; /* FIGMA: fill_UZ4GEA */
+  border-color: #007AFF;
+  color: #FFFFFF; /* FIGMA: fill_NRXQM0 */
+}
+.btn.figma-button-primary:hover {
+  background-color: #0069d9; /* Чуть темнее */
+  border-color: #0062cc;
+}
+.btn.figma-button-primary:disabled {
+   background-color: #007AFF;
+   border-color: #007AFF;
+   opacity: 0.5; /* FIGMA: opacity 0.5 */
+}
+.btn.figma-button-outline-secondary { /* Для Dropdown Toggle */
+  /* Используем стили Bootstrap outline-secondary, но можно переопределить если нужно */
+  padding: 10px 16px; /* FIGMA */
+  border-radius: 6px; /* FIGMA */
+}
+
+/* FIGMA-DEV: Стили для Input Group (Поиск) */
+.figma-search-group .form-control {
+  border-top-left-radius: 4px !important; /* FIGMA: borderRadius 4px */
+  border-bottom-left-radius: 4px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-color: #CED4DA !important; /* FIGMA: stroke_UG10BW */
+  padding: 6px 12px; /* FIGMA: layout_LPAX03 padding */
+}
+.figma-search-group .form-control::placeholder {
+  color: #6C757D; /* FIGMA: fill_FLBAJG */
+}
+.figma-search-group .btn { /* Кнопка поиска */
+  background-color: #0D6EFD; /* FIGMA: fill_WV1YEO */
+  border-color: #0D6EFD; /* FIGMA: stroke_B93ALJ */
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-top-right-radius: 4px !important; /* FIGMA: borderRadius 4px */
+  border-bottom-right-radius: 4px !important;
+  padding: 6px 12px; /* FIGMA: layout_BJKNOR padding */
+}
+.figma-search-group .btn:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+/* FIGMA-DEV: Стили для Button Group (Фильтр статусов) */
+.figma-status-filter .btn {
+  padding: 6px 12px; /* FIGMA: layout_ECP24X padding */
+  border-color: #0D6EFD !important; /* FIGMA: stroke_B93ALJ */
+  border-radius: 0; /* Сначала убираем радиус у всех */
+}
+.figma-status-filter .btn:first-child {
+  border-top-left-radius: 4px !important; /* FIGMA: borderRadius 4px */
+  border-bottom-left-radius: 4px !important;
+}
+.figma-status-filter .btn:last-child {
+  border-top-right-radius: 4px !important; /* FIGMA: borderRadius 4px */
+  border-bottom-right-radius: 4px !important;
+}
+.figma-status-filter .btn.active { /* Активная кнопка */
+  background-color: #0D6EFD; /* FIGMA: fill_WV1YEO */
+  color: #FFFFFF; /* FIGMA: fill_NRXQM0 */
+  border-color: #0D6EFD;
+}
+.figma-status-filter .btn:not(.active) { /* Неактивная кнопка */
+  background-color: #FFFFFF; /* FIGMA: fill_KYK1LI / fill_NRXQM0 */
+  color: #0D6EFD; /* FIGMA: fill_WV1YEO */
+  border-color: #0D6EFD;
+}
+.figma-status-filter .btn:not(.active):hover {
+  background-color: #e9ecef; /* Легкий фон при наведении на неактивную */
+}
+
+
+/* FIGMA-DEV: Стили для Textarea (Промпты) */
+.figma-textarea {
+  padding: 6px 12px !important; /* FIGMA: textarea placeholder padding */
+  border-color: #CED4DA; /* FIGMA: stroke_UG10BW (default) */
+  border-radius: 4px; /* FIGMA: borderRadius 4px */
+}
+.figma-textarea::placeholder {
+  color: #6C757D; /* FIGMA: fill_FLBAJG */
+}
+.figma-textarea.is-valid, /* Валидное поле */
+.figma-textarea.is-saved { /* ИЛИ успешно сохраненное поле */
+  border-color: #198754 !important; /* FIGMA: stroke_GI9RKU */
+  /* box-shadow: 0px 0px 0px 4px rgba(25, 135, 84, 0.5); */ /* FIGMA: effect_H9Y96E - опционально */
+}
+.figma-textarea.is-invalid { /* Невалидное поле */
+  border-color: #DC3545 !important; /* FIGMA: stroke_B2ZZCS */
+}
+
+/* FIGMA-DEV: Стили для Badge */
+.figma-badge {
+  padding: 4.2px 7.8px; /* FIGMA: badge padding (I40:2343;2:61;35:3144;1:4762;1:5513) */
+  border-radius: 4px; /* FIGMA: badge borderRadius */
+  font-size: 12px; /* FIGMA: style_9DVJXI fontSize */
+  font-weight: 700; /* FIGMA: style_9DVJXI fontWeight */
+  line-height: 1; /* FIGMA: style_9DVJXI lineHeight */
+}
+.figma-badge-collections { /* Пример для "Collections" */
+   background-color: #0D6EFD; /* FIGMA: fill_WV1YEO */
+   color: #FFFFFF; /* FIGMA: fill_NRXQM0 */
+   border-radius: 100px !important; /* FIGMA: badge borderRadius (I40:2343;2:61;35:2084;1:5534) */
+}
+.figma-badge-new { /* Пример для "New" */
+   background-color: #6C757D; /* FIGMA: fill_FLBAJG */
+   color: #FFFFFF; /* FIGMA: fill_NRXQM0 */
+}
+.figma-badge-retro { /* Пример для "Retro" */
+   background-color: #6C757D; /* FIGMA: fill_FLBAJG */
+   color: #FFFFFF; /* FIGMA: fill_NRXQM0 */
+   border-radius: 100px !important;
+}
+
+/* Убираем лишние отступы у Form.Check внутри ячеек таблицы */
+.generation-grid-table td .form-check {
+  margin-bottom: 0;
+}
+
+/* Центрирование контента в ячейках через классы d-flex */
+.cell-content-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }

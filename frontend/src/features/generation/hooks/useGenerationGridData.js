@@ -1,22 +1,31 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { fetchGridData, fetchProjects } from "../../../services/api";
 
-export const useGenerationGridData = (collections = [], allProjectsList = []) => {
-  const [visibleColumnProjectIds, setVisibleColumnProjectIds] = useState(
-    () => new Set(allProjectsList.map((p) => p.id))
-  );
+const PER_PAGE = 100;
+
+export const useGenerationGridData = (
+  sortConfig,
+  searchTerm,
+  advancedFilter,
+  typeFilter,
+  generationStatusFilter,
+) => {
+  const [visibleColumnProjectIds, setVisibleColumnProjectIds] = useState(new Set());
   const [collectionTypes, setCollectionTypes] = useState([]);
-  const [sortConfig, setSortConfig] = useState({
-    key: "last_generation_at",
-    direction: "descending",
-  });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [advancedFilter, setAdvancedFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  useEffect(() => {
-    const uniqueTypes = [...new Set(collections.map((c) => c.type).filter(Boolean))].sort();
-    setCollectionTypes(uniqueTypes);
-  }, [collections]);
+  const { 
+    data: projectsData, 
+    isLoading: isProjectsLoading, 
+    error: projectsError 
+  } = useQuery({ 
+      queryKey: ['allProjects'], 
+      queryFn: fetchProjects,
+      staleTime: Infinity,
+  });
+
+  const allProjectsList = projectsData || [];
 
   const visibleProjects = useMemo(() => {
     return allProjectsList.filter((p) => visibleColumnProjectIds.has(p.id));
@@ -24,13 +33,13 @@ export const useGenerationGridData = (collections = [], allProjectsList = []) =>
 
   const handleColumnProjectSelectionChange = useCallback((projectId, isChecked) => {
     setVisibleColumnProjectIds((prev) => {
-      const newSet = new Set(prev);
+      const currentSet = new Set(prev);
       if (isChecked) {
-        newSet.add(projectId);
+        currentSet.add(projectId);
       } else {
-        newSet.delete(projectId);
+        currentSet.delete(projectId);
       }
-      return newSet;
+      return currentSet;
     });
   }, []);
 
@@ -41,59 +50,110 @@ export const useGenerationGridData = (collections = [], allProjectsList = []) =>
       } else {
         if (visibleColumnProjectIds.size > 1 && allProjectsList.length > 0) {
           setVisibleColumnProjectIds(new Set([allProjectsList[0].id]));
+        } else if (allProjectsList.length > 0) {
+          setVisibleColumnProjectIds(new Set([allProjectsList[0].id]));
+        } else {
+          setVisibleColumnProjectIds(new Set());
         }
       }
     },
     [allProjectsList, visibleColumnProjectIds]
   );
 
-  const getSortedAndFilteredCollections = useCallback(() => {
-    const filtered = collections.filter((collection) => {
-      if (!collection) return false;
-      if (!collection.name?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-      if (typeFilter !== "all" && collection.type !== typeFilter) return false;
-      if (advancedFilter === "empty_positive" && collection.collection_positive_prompt)
-        return false;
-      if (advancedFilter === "no_dynamic") {
-        const hasDynamic =
-          (collection.collection_positive_prompt?.includes("{") &&
-            collection.collection_positive_prompt?.includes("}")) ||
-          collection.collection_positive_prompt?.includes("|") ||
-          (collection.collection_negative_prompt?.includes("{") &&
-            collection.collection_negative_prompt?.includes("}")) ||
-          collection.collection_negative_prompt?.includes("|");
-        if (hasDynamic) return false;
+  useEffect(() => {
+    if (!isProjectsLoading && allProjectsList.length >= 0) {
+      const saved = localStorage.getItem('gridVisibleProjectIds');
+      let initialIds = new Set();
+      if (saved) {
+        try {
+          const savedIds = JSON.parse(saved);
+          if (Array.isArray(savedIds)) {
+             const validIds = savedIds.filter(id => allProjectsList.some(p => p.id === id));
+             if (validIds.length > 0) {
+               initialIds = new Set(validIds);
+             } else if (allProjectsList.length > 0) {
+               initialIds = new Set([allProjectsList[0].id]);
+             }
+          } else {
+             console.warn("Invalid data type found in localStorage for gridVisibleProjectIds, expected array.");
+             if (allProjectsList.length > 0) initialIds = new Set([allProjectsList[0].id]);
+          }
+        } catch (e) {
+           console.error("Failed to parse gridVisibleProjectIds from localStorage", e);
+           if (allProjectsList.length > 0) initialIds = new Set([allProjectsList[0].id]);
+        }
+      } else if (allProjectsList.length > 0) {
+         initialIds = new Set([allProjectsList[0].id]);
       }
-      if (advancedFilter === "has_comment" && !collection.comment?.trim()) return false;
-      return true;
-    });
+      setVisibleColumnProjectIds(initialIds);
+      setIsInitialized(true);
+    }
+  }, [isProjectsLoading, allProjectsList]);
 
-    const sorted = [...filtered].sort((a, b) => {
-      const key = sortConfig.key;
-      const direction = sortConfig.direction === "ascending" ? 1 : -1;
-      let aValue = a[key];
-      let bValue = b[key];
-      if (key === "created_at" || key === "last_generation_at") {
-        aValue = aValue ? new Date(aValue).getTime() : direction === 1 ? Infinity : -Infinity;
-        bValue = bValue ? new Date(bValue).getTime() : direction === 1 ? Infinity : -Infinity;
-      } else if (key === "name") {
-        aValue = aValue?.toLowerCase() || "";
-        bValue = bValue?.toLowerCase() || "";
-      }
-      if (aValue < bValue) return -1 * direction;
-      if (aValue > bValue) return 1 * direction;
-      if (key === "created_at" || key === "last_generation_at") {
-        const nameA = a.name?.toLowerCase() || "";
-        const nameB = b.name?.toLowerCase() || "";
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
-      }
-      return 0;
-    });
-    return sorted;
-  }, [collections, searchTerm, typeFilter, advancedFilter, sortConfig]);
+  useEffect(() => {
+    if (isInitialized && visibleColumnProjectIds !== null) {
+      localStorage.setItem('gridVisibleProjectIds', JSON.stringify(Array.from(visibleColumnProjectIds)));
+    }
+  }, [visibleColumnProjectIds, isInitialized]);
 
-  const sortedAndFilteredCollections = getSortedAndFilteredCollections();
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isLoading: isLoadingGridData,
+    error: gridDataError,
+    refetch: refetchGridData,
+  } = useInfiniteQuery({
+    queryKey: [
+      "grid-data-infinite",
+      Array.from(visibleColumnProjectIds),
+      searchTerm,
+      typeFilter,
+      advancedFilter,
+      sortConfig?.key,
+      sortConfig?.direction,
+      generationStatusFilter
+    ],
+    queryFn: ({ pageParam = 1 }) => fetchGridData({
+      visibleProjectIds: Array.from(visibleColumnProjectIds),
+      search: searchTerm,
+      type: typeFilter,
+      advanced: advancedFilter,
+      sort: sortConfig?.key,
+      order: sortConfig?.direction,
+      generationStatusFilter,
+      page: pageParam,
+      per_page: PER_PAGE,
+    }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.collections.has_next) {
+        return lastPage.collections.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
+    keepPreviousData: true,
+    enabled: isInitialized,
+  });
+
+  const isLoading = isProjectsLoading || (isInitialized && isLoadingGridData);
+  const combinedError = projectsError || gridDataError;
+
+  useEffect(() => {
+    if (data?.pages) {
+      const allFetchedCollections = data.pages.flatMap(page => page.collections.items);
+      const uniqueTypes = [...new Set(allFetchedCollections.map((c) => c.type).filter(Boolean))].sort();
+      setCollectionTypes(uniqueTypes);
+    }
+  }, [data?.pages]);
+
+  const allFetchedCollections = useMemo(() =>
+     data?.pages.flatMap(page => page.collections.items) ?? []
+  , [data?.pages]);
+
+  const sortedAndFilteredCollections = allFetchedCollections;
 
   const allColumnProjectsSelected =
     allProjectsList.length > 0 && visibleColumnProjectIds.size === allProjectsList.length;
@@ -106,14 +166,18 @@ export const useGenerationGridData = (collections = [], allProjectsList = []) =>
     searchTerm,
     advancedFilter,
     typeFilter,
+    generationStatusFilter,
     sortedAndFilteredCollections,
     visibleProjects,
     allColumnProjectsSelected,
-    setSortConfig,
-    setSearchTerm,
-    setAdvancedFilter,
-    setTypeFilter,
     handleColumnProjectSelectionChange,
     handleSelectAllColumnProjects,
+    isLoading,
+    gridError: combinedError,
+    refetchGridData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetching,
   };
 };

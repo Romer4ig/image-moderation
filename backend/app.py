@@ -1,4 +1,11 @@
 import os
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,  # или DEBUG, если нужно больше подробностей
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
 # # Хак для разрешения относительных импортов при прямом запуске
 # # (Должен быть до любых относительных импортов в этом файле)
 # import sys
@@ -16,7 +23,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from dotenv import load_dotenv
-
+from flask_migrate import Migrate
 # Используем абсолютный импорт
 from backend.models import db # Импортируем db из models.py
 
@@ -46,6 +53,7 @@ def create_app():
 
     # Инициализация расширений
     db.init_app(app)
+    Migrate(app, db)
     socketio.init_app(app, cors_allowed_origins="*") # Разрешаем CORS для SocketIO
 
     with app.app_context():
@@ -122,4 +130,4 @@ if __name__ == '__main__':
     socketio.run(app, 
                  debug=os.environ.get('FLASK_DEBUG') == '1', 
                  port=int(os.environ.get('FLASK_PORT', 5001)), # Берем порт из .env
-                 host='0.0.0.0')
+                 host='0.0.0.0',allow_unsafe_werkzeug=True)

@@ -4,18 +4,16 @@ import { CheckCircleFill, XCircleFill } from "react-bootstrap-icons";
 
 const GridCell = ({ cellData, onClick }) => {
   let content = null;
-  let cellClass = "grid-cell align-middle";
+  let cellClass = "align-middle";
   let backgroundClass = "";
   let isClickable = false;
+  let cellStyle = {};
 
   if (!cellData) {
     content = "-";
     cellClass = "text-center text-muted align-middle";
   } else {
     isClickable = cellData.status === "generated_not_selected" || cellData.status === "selected";
-    if (isClickable) {
-      cellClass += " clickable";
-    }
 
     switch (cellData.status) {
       case "not_generated":
@@ -41,7 +39,6 @@ const GridCell = ({ cellData, onClick }) => {
             <XCircleFill className="me-1" /> Ошибка
           </span>
         );
-        cellClass += " error";
         backgroundClass = "bg-danger bg-opacity-25";
         break;
       case "generated_not_selected":
@@ -53,13 +50,14 @@ const GridCell = ({ cellData, onClick }) => {
         );
         backgroundClass = "cell-generated-not-selected";
         break;
-      case "selected":
+      default:
         if (cellData.file_url) {
           content = (
             <Image
               src={cellData.file_url}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
               alt={`Gen ${cellData.generation_id}`}
+              fluid
             />
           );
         } else {
@@ -68,15 +66,9 @@ const GridCell = ({ cellData, onClick }) => {
               <XCircleFill className="me-1" /> Нет файла
             </span>
           );
-          cellClass += " error";
-          backgroundClass = "";
+          backgroundClass = "bg-danger bg-opacity-10";
         }
-        cellClass += " cell-selected";
         break;
-      default:
-        content = <span className="text-secondary small">Неизвестный статус</span>;
-        cellClass += " unknown";
-        backgroundClass = "bg-secondary bg-opacity-10";
     }
   }
 
@@ -88,8 +80,8 @@ const GridCell = ({ cellData, onClick }) => {
 
   return (
     <td
-      className={`${backgroundClass} p-0 position-relative`}
-      style={{ width: "150px", height: "150px" }}
+      className={`${backgroundClass} position-relative`}
+      style={{ width: "150px", height: "150px", ...cellStyle }}
       onClick={handleClick}
     >
       <div
@@ -98,13 +90,14 @@ const GridCell = ({ cellData, onClick }) => {
       >
         {content}
       </div>
+      {/*
       {cellData?.status === "selected" && (
         <CheckCircleFill
           className="position-absolute text-success bg-white rounded-circle p-1"
           style={{ top: "5px", right: "5px", fontSize: "1.2rem" }}
-          title="Выбрано"
         />
       )}
+      */}
     </td>
   );
 };

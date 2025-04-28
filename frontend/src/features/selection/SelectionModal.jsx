@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "./SelectionModal.css";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
@@ -13,7 +13,16 @@ import TopRowPreview from "./components/TopRowPreview";
 import ProjectFilters from "./components/ProjectFilters";
 import AttemptGrid from "./components/AttemptGrid";
 
-const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConfirmed }) => {
+const SelectionModal = ({ show, onHide, collectionId, projectId: initialProjectId, onSelectionConfirmed }) => {
+  const [activeProjectId, setActiveProjectId] = useState(initialProjectId);
+  useEffect(() => {
+    if (show) {
+        setActiveProjectId(initialProjectId);
+    } else {
+        setActiveProjectId(null);
+    }
+  }, [show, initialProjectId]);
+
   const {
     modalData,
     loading,
@@ -24,10 +33,15 @@ const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConf
     displayedAttempts,
     loadingAttempts,
     handleCheckboxChange,
-  } = useSelectionData(show, collectionId, projectId);
+    persistedSelectedFileId,
+  } = useSelectionData(show, collectionId, activeProjectId);
 
   const { selectedAttempt, isSubmitting, handleAttemptClick, handleConfirmSelection } =
-    useAttemptSelection(collectionId, projectId, setTopRowItems, onSelectionConfirmed, onHide);
+    useAttemptSelection(collectionId, activeProjectId, setTopRowItems, onSelectionConfirmed, onHide);
+
+  const handleProjectClick = (projectId) => {
+    setActiveProjectId(projectId);
+  };
 
   const renderModalContent = () => {
     if (loading) {
@@ -46,7 +60,7 @@ const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConf
 
     return (
       <>
-        <TopRowPreview topRowItems={topRowItems} />
+        <TopRowPreview topRowItems={topRowItems} projectId={activeProjectId} onProjectClick={handleProjectClick} />
 
         <h5 className="mt-4 fw-semibold">
           Выбор обложки для проекта "{modalData.target_project?.name}"
@@ -73,6 +87,7 @@ const SelectionModal = ({ show, onHide, collectionId, projectId, onSelectionConf
           loadingAttempts={loadingAttempts}
           displayedAttempts={displayedAttempts}
           selectedAttempt={selectedAttempt}
+          persistedSelectedFileId={persistedSelectedFileId}
           handleAttemptClick={handleAttemptClick}
         />
       </>

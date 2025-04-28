@@ -47,11 +47,30 @@ export const updateCollection = async ({ collectionId, collectionData }) => {
 };
 
 // --- Generation & Grid API ---
-export const fetchGridData = async (visibleProjectIds) => {
+export const fetchGridData = async ({
+  visibleProjectIds = [],
+  search = '',
+  type = '',
+  advanced = '',
+  sort = '',
+  order = '',
+  generationStatusFilter = '',
+  page = 1,
+  per_page = 100,
+} = {}) => {
   const params = {};
   if (visibleProjectIds && visibleProjectIds.length > 0) {
     params.visible_project_ids = visibleProjectIds.join(",");
   }
+  if (search) params.search = search;
+  if (type) params.type = type;
+  if (advanced) params.advanced = advanced;
+  if (sort) params.sort = sort;
+  if (order) params.order = order;
+  if (generationStatusFilter && generationStatusFilter !== 'all') params.generation_status_filter = generationStatusFilter;
+  params.page = page;
+  params.per_page = per_page;
+
   const { data } = await apiClient.get("/grid-data", { params });
   return data;
 };
@@ -80,6 +99,12 @@ export const selectCover = async ({ collectionId, projectId, generationId, gener
     generation_id: generationId,
     generated_file_id: generatedFileId,
   });
+  return data;
+};
+
+export const importCollectionsCSV = async (formData) => {
+  // Отправляем FormData, axios сам установит Content-Type: multipart/form-data
+  const { data } = await apiClient.post("/collections/import-csv", formData);
   return data;
 };
 

@@ -12,9 +12,37 @@ grid_selection_bp = Blueprint('grid_selection', __name__, url_prefix='/api')
 @grid_selection_bp.route('/grid-data', methods=['GET'])
 def get_grid_data_route():
     """ Маршрут для получения данных грида. Делегирует работу сервису. """
+    # Получаем параметры запроса
     visible_project_ids_str = request.args.get('visible_project_ids')
+    search = request.args.get('search')
+    type_ = request.args.get('type')
+    advanced = request.args.get('advanced')
+    sort = request.args.get('sort')
+    order = request.args.get('order')
+    generation_status_filter = request.args.get('generation_status_filter')
+    # Получаем параметры пагинации
     try:
-        data = get_grid_data_service(visible_project_ids_str)
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 100))
+        if page < 1: page = 1
+        if per_page < 1: per_page = 100
+        # Ограничим максимальный per_page, чтобы избежать слишком больших запросов
+        per_page = min(per_page, 500) 
+    except ValueError:
+         return jsonify({"error": "Invalid page or per_page parameter"}), 400
+
+    try:
+        data = get_grid_data_service(
+            visible_project_ids_str,
+            search=search,
+            type_=type_,
+            advanced=advanced,
+            sort=sort,
+            order=order,
+            generation_status_filter=generation_status_filter,
+            page=page,
+            per_page=per_page
+        )
         return jsonify(data)
     except Exception as e:
         logger.exception("Error in get_grid_data_route")

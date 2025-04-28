@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 // import axios from "axios"; <-- УДАЛИТЬ
 import SelectionModal from "../selection/SelectionModal";
 import { useMutation } from "@tanstack/react-query";
 import { generateBatch } from "../../services/api";
+import { useInView } from 'react-intersection-observer';
+// import { useCollections } from "../../context/useCollections"; // Убираем
+import { useWebSocketContext } from "../../context/WebSocketContext"; // Импортируем новый контекст
 
 // Импорты react-bootstrap
 import Container from "react-bootstrap/Container";
@@ -41,68 +44,124 @@ import GridControls from "./components/GridControls";
 import GridHeader from "./components/GridHeader";
 import GridRow from "./components/GridRow";
 import { useGenerationGridData } from "./hooks/useGenerationGridData";
-import { useCollectionActions } from "./hooks/useCollectionActions";
-import { useCollections } from "../../context/useCollections";
 import "./GenerationGrid.css";
 
 // const API_URL = "http://localhost:5001/api"; <-- УДАЛИТЬ
 
 const GenerationGrid = () => {
-  const { collections, setCollections, allProjectsList, isLoadingGrid, gridError } =
-    useCollections();
-  // const queryClient = useQueryClient(); <-- УДАЛИТЬ
+  // --- Используем контекст WebSocket ---
+  const { lastMessage } = useWebSocketContext();
 
-  // --- Используем хук для данных грида ---
+  // --- Опции отображения грида с localStorage ---
+  const [showPositivePrompt, setShowPositivePrompt] = useState(() => {
+    const v = localStorage.getItem('gridShowPositivePrompt');
+    return v !== null ? JSON.parse(v) : true;
+  });
+  const [showNegativePrompt, setShowNegativePrompt] = useState(() => {
+    const v = localStorage.getItem('gridShowNegativePrompt');
+    return v !== null ? JSON.parse(v) : true;
+  });
+  const [showCollectionComment, setShowCollectionComment] = useState(() => {
+    const v = localStorage.getItem('gridShowCollectionComment');
+    return v !== null ? JSON.parse(v) : false;
+  });
+  const [advancedFilter, setAdvancedFilter] = useState(() => {
+    const v = localStorage.getItem('gridAdvancedFilter');
+    return v !== null ? JSON.parse(v) : false;
+  });
+  const [typeFilter, setTypeFilter] = useState(() => {
+    const v = localStorage.getItem('gridTypeFilter');
+    return v !== null ? v : '';
+  });
+  const [sortConfig, setSortConfig] = useState(() => {
+    const v = localStorage.getItem('gridSortConfig');
+    return v !== null ? JSON.parse(v) : { key: 'created_at', direction: 'desc' };
+  });
+  const [searchTerm, setSearchTerm] = useState(() => {
+    const v = localStorage.getItem('gridSearchTerm');
+    return v !== null ? v : '';
+  });
+  const [generationStatusFilter, setGenerationStatusFilter] = useState("all");
+
+  useEffect(() => {
+    localStorage.setItem('gridShowPositivePrompt', JSON.stringify(showPositivePrompt));
+  }, [showPositivePrompt]);
+  useEffect(() => {
+    localStorage.setItem('gridShowNegativePrompt', JSON.stringify(showNegativePrompt));
+  }, [showNegativePrompt]);
+  useEffect(() => {
+    localStorage.setItem('gridShowCollectionComment', JSON.stringify(showCollectionComment));
+  }, [showCollectionComment]);
+  useEffect(() => {
+    localStorage.setItem('gridAdvancedFilter', JSON.stringify(advancedFilter));
+  }, [advancedFilter]);
+  useEffect(() => {
+    localStorage.setItem('gridTypeFilter', typeFilter);
+  }, [typeFilter]);
+  useEffect(() => {
+    localStorage.setItem('gridSortConfig', JSON.stringify(sortConfig));
+  }, [sortConfig]);
+  useEffect(() => {
+    localStorage.setItem('gridSearchTerm', searchTerm);
+  }, [searchTerm]);
+
+  // --- Используем хук для данных грида --- 
   const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading, // Теперь это общий isLoading из хука
+    gridError,
+    refetchGridData,
     visibleColumnProjectIds,
     collectionTypes,
-    sortConfig,
-    searchTerm,
-    advancedFilter,
-    typeFilter,
-    sortedAndFilteredCollections,
-    visibleProjects,
+    sortedAndFilteredCollections, // Массив коллекций для отображения
+    visibleProjects, // Видимые проекты для колонок
+    allProjectsList, // Полный список проектов для контролов
     allColumnProjectsSelected,
-    setSortConfig,
-    setSearchTerm,
-    setAdvancedFilter,
-    setTypeFilter,
     handleColumnProjectSelectionChange,
     handleSelectAllColumnProjects,
-  } = useGenerationGridData(collections, allProjectsList); // Передаем collections и allProjectsList
+  } = useGenerationGridData( // Передаем только параметры фильтрации/сортировки
+      sortConfig,
+      searchTerm,
+      advancedFilter,
+      typeFilter,
+      generationStatusFilter
+      // isProjectsLoading больше не нужен, т.к. контекст убрали
+  );
 
-  const { fieldSaveStatus, handlePromptChange, handleAutoSaveCollectionField } =
-    useCollectionActions(setCollections);
+  // --- Обработка сообщений WebSocket из контекста ---
+  useEffect(() => {
+    if (lastMessage && lastMessage.data) {
+        const message = lastMessage.data; // Достаем актуальные данные
+        console.log("WebSocket message received in GenerationGrid (from Context):", message);
+        // Проверяем тип сообщения и рефетчим данные, если нужно
+        if (message.type === 'grid_cell_updated' || message.type === 'generation_status_changed') {
+           console.log("Refetching grid data due to WebSocket message (from Context)...");
+           refetchGridData(); 
+        }
+        // Можно добавить обработку других типов сообщений здесь
+    }
+  }, [lastMessage, refetchGridData]); // Зависимость от lastMessage и refetchGridData
+
+  // --- Intersection Observer для Infinite Scroll ---
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: "200px",
+  });
+
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // --- Оставшиеся состояния и обработчики ---
   const [selectedCollectionIds, setSelectedCollectionIds] = useState(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContext, setModalContext] = useState({ collectionId: null, projectId: null });
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showPositivePrompt, setShowPositivePrompt] = useState(true);
-  const [showNegativePrompt, setShowNegativePrompt] = useState(true);
-  const [showCollectionComment, setShowCollectionComment] = useState(false);
   const [projectsForGenerationIds, setProjectsForGenerationIds] = useState(new Set());
-
-  // --- Мутация для запуска генерации ---
-  const {
-    mutate: generateBatchMutate,
-    isLoading: isSubmittingGenerations,
-    error: generateError,
-  } = useMutation({
-    mutationFn: generateBatch,
-    onSuccess: (data) => {
-      console.log("Generate batch response:", data);
-      alert(
-        `Задачи генерации отправлены (${data?.tasks_started?.length || 0} успешно). Проверьте статус в гриде.`
-      );
-      setSelectedCollectionIds(new Set());
-    },
-    onError: (err) => {
-      console.error("Error calling generate-batch API:", err);
-      alert(`Ошибка при отправке задач генерации: ${err.response?.data?.error || err.message}`);
-    },
-  });
 
   const handleGenerationProjectSelectionChange = (projectId, isChecked) => {
     setProjectsForGenerationIds((prev) => {
@@ -126,7 +185,7 @@ const GenerationGrid = () => {
     setSelectedCollectionIds((prev) => {
       const newSet = new Set(prev);
       if (isChecked) {
-        newSet.add(collectionId);
+        newSet.add(collectionId); // Добавляем ID
       } else {
         newSet.delete(collectionId);
       }
@@ -150,15 +209,19 @@ const GenerationGrid = () => {
     }
     const pairsToGenerate = [];
     selectedCollectionIds.forEach((collectionId) => {
-      const collection = collections.find((c) => c.id === collectionId);
-      if (collection) {
+      // Ищем коллекцию в АКТУАЛЬНОМ списке из useGenerationGridData
+      const collection = sortedAndFilteredCollections.find((c) => String(c.id) === String(collectionId)); 
+      if (collection) { 
         projectsForGenerationIds.forEach((projectId) => {
-          pairsToGenerate.push({ project_id: projectId, collection_id: collectionId });
+          pairsToGenerate.push({ project_id: projectId, collection_id: String(collection.id) }); // Передаем ID как строку
         });
+      } else {
+        console.warn(`Collection with ID ${collectionId} not found in current grid data (sortedAndFilteredCollections).`);
       }
     });
+
     if (pairsToGenerate.length === 0) {
-      alert("Нет подходящих пар проект-коллекция для запуска генерации.");
+      alert("Нет подходящих пар проект-коллекция для запуска генерации."); 
       return;
     }
 
@@ -176,31 +239,11 @@ const GenerationGrid = () => {
   const handleSelectionConfirmed = () => {
     console.log("Selection confirmed in modal...");
   };
-  const renderFieldStatus = (collectionId, fieldType) => {
-    const status = fieldSaveStatus[collectionId]?.[fieldType];
-    if (!status) return null;
-    if (status.saving) {
-      return (
-        <Spinner
-          animation="border"
-          size="sm"
-          variant="secondary"
-          className="ms-1"
-          title="Сохранение..."
-        />
-      );
+  const handleCollectionAdded = () => {
+    if (typeof refetchGridData === 'function') {
+      refetchGridData();
     }
-    if (status.error) {
-      return (
-        <ExclamationTriangleFill className="text-danger ms-1" title={`Ошибка: ${status.error}`} />
-      );
-    }
-    if (status.saved) {
-      return <CheckLg className="text-success ms-1" title="Сохранено" />;
-    }
-    return null;
   };
-  const handleCollectionAdded = () => {};
 
   const allGenerationProjectsSelected =
     allProjectsList.length > 0 && projectsForGenerationIds.size === allProjectsList.length;
@@ -209,8 +252,32 @@ const GenerationGrid = () => {
     sortedAndFilteredCollections.length > 0 &&
     sortedAndFilteredCollections.every((c) => selectedCollectionIds.has(c.id));
 
+  // --- Мутация для запуска генерации ---
+  const {
+    mutate: generateBatchMutate,
+    isLoading: isSubmittingGenerations,
+    error: generateError,
+  } = useMutation({
+    mutationFn: generateBatch,
+    onSuccess: (data) => {
+      console.log("Generate batch response:", data);
+      setSelectedCollectionIds(new Set());
+      if (typeof refetchGridData === 'function') {
+        refetchGridData();
+      }
+    },
+    onError: (err) => {
+      console.error("Error calling generate-batch API:", err);
+      alert(`Ошибка при отправке задач генерации: ${err.response?.data?.error || err.message}`);
+    },
+  });
+
+  // Используем sortedAndFilteredCollections из хука
+  const filteredCollections = sortedAndFilteredCollections;
+
   return (
     <>
+      <Container fluid className="p-4">
       <GridControls
         allProjectsList={allProjectsList}
         projectsForGenerationIds={projectsForGenerationIds}
@@ -240,9 +307,13 @@ const GenerationGrid = () => {
         handleGenerateSelected={handleGenerateSelected}
         isSubmittingGenerations={isSubmittingGenerations}
         selectedCollectionIds={selectedCollectionIds}
+        generationStatusFilter={generationStatusFilter}
+        setGenerationStatusFilter={setGenerationStatusFilter}
+        visibleProjects={visibleProjects}
+        onImportSuccess={refetchGridData}
       />
 
-      {isLoadingGrid && (
+      {(isLoading && !isFetchingNextPage) && (
         <div className="text-center p-5">
           <Spinner animation="border" /> Загрузка данных грида...
         </div>
@@ -253,41 +324,72 @@ const GenerationGrid = () => {
           Ошибка запуска генерации: {generateError.message}
         </Alert>
       )}
-      {!isLoadingGrid && !gridError && (
-        <Table bordered hover responsive className="generation-grid-table">
+      {!isLoading && !gridError && (
+        <Table
+          className="generation-grid-table mt-3"
+          bordered
+          hover
+          responsive
+          size="sm"
+        >
           <GridHeader
             allVisibleCollectionsSelected={allVisibleCollectionsSelected}
             handleSelectAllCollections={handleSelectAllCollections}
-            sortedAndFilteredCollections={sortedAndFilteredCollections}
+            sortedAndFilteredCollections={filteredCollections}
             visibleProjects={visibleProjects}
             shouldShowPromptColumn={shouldShowPromptColumn}
           />
           <tbody>
-            {sortedAndFilteredCollections.map((collection) => (
-              <GridRow
-                key={collection.id}
-                collection={collection}
-                selectedCollectionIds={selectedCollectionIds}
-                handleCollectionSelectionChange={handleCollectionSelectionChange}
-                visibleProjects={visibleProjects}
-                openSelectionModal={openSelectionModal}
-                shouldShowPromptColumn={shouldShowPromptColumn}
-                showPositivePrompt={showPositivePrompt}
-                showNegativePrompt={showNegativePrompt}
-                showCollectionComment={showCollectionComment}
-                handlePromptChange={handlePromptChange}
-                handleAutoSaveCollectionField={handleAutoSaveCollectionField}
-                fieldSaveStatus={fieldSaveStatus}
-                renderFieldStatus={renderFieldStatus}
-              />
-            ))}
-            {sortedAndFilteredCollections.length === 0 && (
+            {filteredCollections.length > 0 ? (
+              filteredCollections.map((collection) => (
+                <GridRow
+                  key={collection.id}
+                  collection={collection}
+                  selectedCollectionIds={selectedCollectionIds}
+                  handleCollectionSelectionChange={handleCollectionSelectionChange}
+                  visibleProjects={visibleProjects}
+                  openSelectionModal={openSelectionModal}
+                  shouldShowPromptColumn={shouldShowPromptColumn}
+                  showPositivePrompt={showPositivePrompt}
+                  showNegativePrompt={showNegativePrompt}
+                  showCollectionComment={showCollectionComment}
+                  generationStatusFilter={generationStatusFilter}
+                />
+              ))
+            ) : (
               <tr>
                 <td
-                  colSpan={2 + visibleProjects.length + (shouldShowPromptColumn ? 1 : 0)}
-                  className="text-center text-muted"
+                  colSpan={
+                    1 + visibleProjects.length + (shouldShowPromptColumn ? 1 : 0)
+                  }
+                  className="text-center text-muted p-5"
                 >
-                  Нет коллекций, соответствующих фильтрам, или данные еще не загружены.
+                  Нет сборников для отображения по заданным фильтрам.
+                </td>
+              </tr>
+            )}
+
+            <tr>
+              <td colSpan={1 + visibleProjects.length + (shouldShowPromptColumn ? 1 : 0)} style={{ padding: 0 }}>
+                <div 
+                  ref={loadMoreRef} 
+                  style={{ height: '1px', background: 'red', width: '100%' }}
+                  aria-hidden="true"
+                />
+              </td>
+            </tr>
+
+            {isFetchingNextPage && (
+              <tr>
+                <td colSpan={1 + visibleProjects.length + (shouldShowPromptColumn ? 1 : 0)} className="text-center p-3">
+                  <Spinner animation="border" size="sm" /> Загрузка следующих...
+                </td>
+              </tr>
+            )}
+            {!hasNextPage && filteredCollections.length > 0 && (
+              <tr>
+                <td colSpan={1 + visibleProjects.length + (shouldShowPromptColumn ? 1 : 0)} className="text-center text-muted p-3">
+                  Больше нет данных для загрузки.
                 </td>
               </tr>
             )}
@@ -307,6 +409,7 @@ const GenerationGrid = () => {
         onHide={() => setShowAddModal(false)}
         onSuccess={handleCollectionAdded}
       />
+      </Container>
     </>
   );
 };

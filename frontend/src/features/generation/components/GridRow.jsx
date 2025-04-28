@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Form, Badge } from "react-bootstrap";
 import GridCell from "./GridCell";
 
@@ -12,31 +12,53 @@ const GridRow = ({
   showPositivePrompt,
   showNegativePrompt,
   showCollectionComment,
-  handlePromptChange,
-  handleAutoSaveCollectionField,
-  fieldSaveStatus,
-  renderFieldStatus,
+  generationStatusFilter,
 }) => {
-  const positivePromptInvalid = !collection.collection_positive_prompt;
-  const positiveStatus = fieldSaveStatus[collection.id]?.positive || {};
-  const negativeStatus = fieldSaveStatus[collection.id]?.negative || {};
-  const commentStatus = fieldSaveStatus[collection.id]?.comment || {};
+  // Локальное состояние для редактируемых полей
+  const [localPositive, setLocalPositive] = useState(collection.collection_positive_prompt || "");
+  const [localNegative, setLocalNegative] = useState(collection.collection_negative_prompt || "");
+  const [localComment, setLocalComment] = useState(collection.comment || "");
+
+  // Синхронизация локального состояния при изменении collection
+  useEffect(() => {
+    setLocalPositive(collection.collection_positive_prompt || "");
+  }, [collection.collection_positive_prompt]);
+  useEffect(() => {
+    setLocalNegative(collection.collection_negative_prompt || "");
+  }, [collection.collection_negative_prompt]);
+  useEffect(() => {
+    setLocalComment(collection.comment || "");
+  }, [collection.comment]);
+
+  const positivePromptInvalid = !localPositive;
+
+  // FIGMA-DEV: Определяем класс для Badge
+  let badgeClass = "figma-badge ms-2";
+  if (collection.type === "Collections") {
+    badgeClass += " figma-badge-collections";
+  } else if (collection.type === "New") {
+    badgeClass += " figma-badge-new";
+  } else if (collection.type === "Retro") {
+     badgeClass += " figma-badge-retro";
+  } // Добавить другие типы по необходимости
 
   return (
     <tr key={collection.id}>
       <td>
+        {/* FIGMA-DEV: Применяем кастомный класс к чекбоксу */}
         <Form.Check
           type="checkbox"
           id={`collection-${collection.id}`}
           checked={selectedCollectionIds.has(collection.id)}
           onChange={(e) => handleCollectionSelectionChange(collection.id, e.target.checked)}
-          className="float-start me-2"
+          className="float-start me-2 figma-checkbox"
         />
         <div>
           <strong>{collection.name}</strong> <br />
           <small className="text-muted">{collection.id}</small>
           {collection.type && (
-            <Badge bg="secondary" className="ms-2">
+            // FIGMA-DEV: Используем определенный класс для Badge
+            <Badge bg={null} className={badgeClass}>
               {collection.type}
             </Badge>
           )}
@@ -47,68 +69,71 @@ const GridRow = ({
           key={`${collection.id}-${project.id}`}
           cellData={collection.cells?.[project.id]}
           onClick={() => openSelectionModal(collection.id, project.id)}
+          generationStatusFilter={generationStatusFilter}
         />
       ))}
       {shouldShowPromptColumn && (
-        <td className="align-top position-relative">
-          {showPositivePrompt && (
-            <div className="position-relative mb-1">
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Positive Prompt"
-                value={collection.collection_positive_prompt || ""}
-                onChange={(e) => handlePromptChange(collection.id, "positive", e.target.value)}
-                onBlur={(e) =>
-                  handleAutoSaveCollectionField(collection.id, "positive", e.target.value)
-                }
-                size="sm"
-                className={`${positiveStatus.saved && !positivePromptInvalid ? "border border-success" : ""}`}
-                isInvalid={positivePromptInvalid && !positiveStatus.saved}
-              />
-              <div className="position-absolute" style={{ top: "5px", right: "5px" }}>
-                {renderFieldStatus(collection.id, "positive")}
+        <td className="align-top position-relative" style={{ padding: 0, minWidth: 220 }}>
+          <div
+            className="prompt-flex-container"
+            style={{ display: 'flex', flexDirection: 'column', height: 145, gap: 2 }}
+          >
+            {showPositivePrompt && (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <Form.Control
+                  as="textarea"
+                  placeholder="Positive Prompt"
+                  value={localPositive}
+                  onChange={(e) => setLocalPositive(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minHeight: 32,
+                    maxHeight: '100%',
+                    resize: 'none',
+                    overflow: 'auto',
+                  }}
+                  className={`figma-textarea`}
+                  isInvalid={positivePromptInvalid}
+                />
               </div>
-            </div>
-          )}
-          {showNegativePrompt && (
-            <div className="position-relative mb-1">
-              <Form.Control
-                as="textarea"
-                rows={1}
-                placeholder="Negative Prompt"
-                value={collection.collection_negative_prompt || ""}
-                onChange={(e) => handlePromptChange(collection.id, "negative", e.target.value)}
-                onBlur={(e) =>
-                  handleAutoSaveCollectionField(collection.id, "negative", e.target.value)
-                }
-                size="sm"
-                className={`${negativeStatus.saved ? "border border-success" : ""}`}
-              />
-              <div className="position-absolute" style={{ top: "5px", right: "5px" }}>
-                {renderFieldStatus(collection.id, "negative")}
+            )}
+            {showNegativePrompt && (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <Form.Control
+                  as="textarea"
+                  placeholder="Negative Prompt"
+                  value={localNegative}
+                  onChange={(e) => setLocalNegative(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minHeight: 32,
+                    maxHeight: '100%',
+                    resize: 'none',
+                    overflow: 'auto',
+                  }}
+                  className={`figma-textarea`}
+                />
               </div>
-            </div>
-          )}
-          {showCollectionComment && (
-            <div className="position-relative">
-              <Form.Control
-                as="textarea"
-                rows={1}
-                placeholder="Комментарий"
-                value={collection.comment || ""}
-                onChange={(e) => handlePromptChange(collection.id, "comment", e.target.value)}
-                onBlur={(e) =>
-                  handleAutoSaveCollectionField(collection.id, "comment", e.target.value)
-                }
-                size="sm"
-                className={`${commentStatus.saved ? "border border-success" : ""}`}
-              />
-              <div className="position-absolute" style={{ top: "5px", right: "5px" }}>
-                {renderFieldStatus(collection.id, "comment")}
+            )}
+            {showCollectionComment && (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <Form.Control
+                  as="textarea"
+                  placeholder="Комментарий"
+                  value={localComment}
+                  onChange={(e) => setLocalComment(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minHeight: 32,
+                    maxHeight: '100%',
+                    resize: 'none',
+                    overflow: 'auto',
+                  }}
+                  className={`figma-textarea`}
+                />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </td>
       )}
     </tr>
