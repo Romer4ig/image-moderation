@@ -1,20 +1,15 @@
 import React from "react";
 import { Accordion, Spinner, Alert, Button, Form, Row, Col } from "react-bootstrap";
-import { Save } from "react-bootstrap-icons";
+import { Save, ArrowClockwise } from "react-bootstrap-icons";
 
 const ProjectAccordionItem = ({
   project,
   localChanges,
-  savingStatus,
+  status,
   handleProjectChange,
   handleSaveProject,
+  handleReindexProject,
 }) => {
-  const status = savingStatus[project.id] || {
-    isSaving: false,
-    error: null,
-    jsonError: null,
-  };
-
   const getFieldValue = (fieldName) => {
     return localChanges?.[fieldName] !== undefined ? localChanges[fieldName] : project[fieldName];
   };
@@ -45,6 +40,21 @@ const ProjectAccordionItem = ({
               disabled={status.isSaving}
             />
           </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Путь сохранения</Form.Label>
+            <Form.Control
+              type="text"
+              value={getFieldValue("path")}
+              onChange={(e) => handleProjectChange(project.id, "path", e.target.value)}
+              disabled={status.isSaving}
+              placeholder="Например, /mnt/generated_images/my_project или my_project_folder"
+            />
+            <Form.Text muted>
+              Опционально. Если указано, файлы генераций будут сохраняться в этой директории (относительно базовой директории генераций на сервере).
+            </Form.Text>
+          </Form.Group>
+
           <Form.Group className="mb-3">
             <Form.Label>Базовый позитивный промпт</Form.Label>
             <Form.Control
@@ -107,15 +117,33 @@ const ProjectAccordionItem = ({
               value={getFieldValue("jsonString")}
               onChange={(e) => handleProjectChange(project.id, "jsonString", e.target.value)}
               isInvalid={!!status.jsonError}
-              disabled={status.isSaving}
+              disabled={status.isSaving || status.isReindexing}
             />
             <Form.Control.Feedback type="invalid">{status.jsonError}</Form.Control.Feedback>
           </Form.Group>
-          <div className="d-flex justify-content-end">
+          
+          {status.reindexError && (
+            <Alert variant="warning" size="sm" className="mt-2">
+              Ошибка переиндексации: {status.reindexError}
+            </Alert>
+          )}
+          
+          <div className="d-flex justify-content-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => handleReindexProject(project.id)}
+              disabled={status.isSaving || status.isReindexing || !project.path }
+              title={!project.path ? "Укажите и сохраните путь для индексации" : "Переиндексировать директорию"}
+            >
+               {status.isReindexing ? <Spinner as="span" size="sm" /> : <ArrowClockwise className="me-1" />}
+              Переиндексировать
+            </Button>
+          
             <Button
               variant="primary"
               type="submit"
-              disabled={status.isSaving || !!status.jsonError}
+              disabled={status.isSaving || status.isReindexing || !!status.jsonError || !localChanges}
+              title={!localChanges ? "Нет несохраненных изменений" : "Сохранить изменения"}
             >
               {status.isSaving ? <Spinner as="span" size="sm" /> : <Save className="me-1" />}
               Сохранить

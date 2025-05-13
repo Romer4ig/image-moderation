@@ -5,6 +5,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import Layout from "./components/layout/Layout";
 import { CollectionProvider } from "./context/CollectionContext";
 import { useWebSocketContext } from "./context/WebSocketContext";
+import { ToastContainer } from 'react-toastify';
 import "./styles/App.css";
 
 const AppContent = () => {
@@ -48,6 +49,18 @@ function App() {
     <Router>
       <CollectionProvider>
         <AppContent />
+        <ToastContainer 
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
       </CollectionProvider>
     </Router>
   );

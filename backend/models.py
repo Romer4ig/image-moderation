@@ -31,6 +31,7 @@ class Project(db.Model):
     __tablename__ = 'projects'
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(120), nullable=False)
+    path = db.Column(db.Text, nullable=True) # Новое поле path
     base_generation_params_json = db.Column(db.JSON, nullable=True, default=lambda: {}) # Используем lambda для default
     base_positive_prompt = db.Column(db.Text, nullable=True, default='')
     base_negative_prompt = db.Column(db.Text, nullable=True, default='')
@@ -47,6 +48,7 @@ class Project(db.Model):
         return {
             'id': self.id,
             'name': self.name,
+            'path': self.path, # Добавляем path в сериализацию
             'base_generation_params_json': self.base_generation_params_json,
             'base_positive_prompt': self.base_positive_prompt,
             'base_negative_prompt': self.base_negative_prompt,
@@ -144,7 +146,8 @@ class GeneratedFile(db.Model):
     def get_url(self):
         """ Возвращает полный URL для доступа к файлу. """
         # Используем имя нового Blueprint: 'file_serving'
-        return url_for('file_serving.serve_generated_file', filepath=self.file_path, _external=True, _scheme='http')
+        # И новый параметр file_id вместо filepath
+        return url_for('file_serving.serve_generated_file', file_id=self.id, _external=True, _scheme='http')
 
     def to_dict(self): # Метод для сериализации
         return {

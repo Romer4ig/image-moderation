@@ -108,4 +108,10 @@ export const importCollectionsCSV = async (formData) => {
   return data;
 };
 
+// --- Project Reindex API ---
+export const reindexProject = async (projectId) => {
+  const { data } = await apiClient.post(`/projects/${projectId}/reindex`);
+  return data; // Ожидаем JSON с сообщением, path_checked, entry_count или ошибкой
+};
+
 // Можно добавить другие функции API по мере необходимости

@@ -8,5 +8,4 @@ if __name__ == '__main__':
     socketio.run(app, 
                  debug=os.environ.get('FLASK_DEBUG') == '1', 
                  port=int(os.environ.get('FLASK_PORT', 5001)), # Берем порт из .env или по умолчанию
-                 host='0.0.0.0',
-                 allow_unsafe_werkzeug=True)
+                 host='0.0.0.0')

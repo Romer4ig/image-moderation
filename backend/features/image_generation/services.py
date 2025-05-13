@@ -255,18 +255,53 @@ def process_scheduler_callback(generation_id: str,
     try:
         if status_str == 'done' and files:
             generation.status = GenerationStatus.COMPLETED
-            # Статус модерации по умолчанию PENDING_MODERATION
-            generation.moderation_status = ModerationStatus.PENDING_MODERATION 
-            generation.error_message = None # Очищаем старую ошибку, если была
+            generation.moderation_status = ModerationStatus.PENDING_MODERATION
+            generation.error_message = None
 
             saved_files_info = []
-            # Убедимся, что директория для файлов генерации существует
-            generation_files_dir = os.path.join(current_app.config['GENERATED_FILES_FOLDER'], generation_id)
-            os.makedirs(generation_files_dir, exist_ok=True)
-            logger.info(f"Ensured directory exists: {generation_files_dir}")
 
-            # --- Обработка файлов --- 
-            # files теперь dict, где значения — списки файлов
+            # --- Новая логика определения пути сохранения ---
+            project = Project.query.get(generation.project_id)
+            date_folder_name = datetime.utcnow().strftime('%Y-%m-%d')
+            generation_id_folder = generation.id # Используем сам ID генерации как имя папки
+
+            effective_base_path_on_disk: str
+            # Этот флаг или префикс пути понадобится для формирования пути в БД,
+            # если он должен быть относительным к GENERATED_FILES_FOLDER
+            
+            path_prefix_for_db = [] # Части пути, которые будут впереди date/gen_id в file_path для БД, если путь внутри GENERATED_FILES_FOLDER
+
+            generated_files_root_abs = os.path.abspath(current_app.config['GENERATED_FILES_FOLDER'])
+
+            if project and project.path:
+                user_defined_project_path = project.path.strip()
+                if user_defined_project_path:
+                    if os.path.isabs(user_defined_project_path):
+                        effective_base_path_on_disk = user_defined_project_path
+                        # Если путь абсолютный, то для file_path в БД у нас нет простого относительного префикса от GENERATED_FILES_FOLDER
+                        # path_prefix_for_db остается пустым в этом сценарии, если мы хотим хранить полный путь,
+                        # или нам нужна более сложная логика, если мы хотим попытаться сделать его относительным к чему-то еще.
+                    else: # Относительный путь
+                        # Убираем возможные начальные/конечные разделители, чтобы join работал правильно
+                        clean_relative_path = user_defined_project_path.strip(os.sep)
+                        effective_base_path_on_disk = os.path.join(generated_files_root_abs, clean_relative_path)
+                        path_prefix_for_db.append(clean_relative_path)
+                else: # project.path пустая строка
+                    effective_base_path_on_disk = generated_files_root_abs
+            else: # project не найден или project.path не задан
+                effective_base_path_on_disk = generated_files_root_abs
+            
+            # Абсолютный путь на диске к папке для файлов данной конкретной генерации
+            absolute_dir_for_generation_files_on_disk = os.path.join(
+                effective_base_path_on_disk,
+                date_folder_name,
+            )
+            
+            os.makedirs(absolute_dir_for_generation_files_on_disk, exist_ok=True)
+            logger.info(f"Ensured directory for generation files exists: {absolute_dir_for_generation_files_on_disk}")
+            # --- Конец новой логики определения пути ---
+
+            # --- Обработка файлов ---
             if files:
                 total_files = sum(len(file_list) for file_list in files.values())
                 logger.info(f"Processing {total_files} files from request.files...")
@@ -276,27 +311,44 @@ def process_scheduler_callback(generation_id: str,
                            logger.warning(f"Skipping empty file field '{field_name}' for {generation_id}")
                            continue
                       original_filename = file_storage.filename
-                      # Генерируем безопасное имя
                       filename_base = uuid.uuid4().hex
-                      filename_ext = os.path.splitext(original_filename)[1].lower() or '.png' # По умолчанию .png
-                      secure_filename = f"{filename_base}{filename_ext}"
-                      # Формируем путь ОТНОСИТЕЛЬНО базовой папки generated_images
-                      relative_file_path = os.path.join(generation_id, secure_filename) 
-                      full_save_path = os.path.join(generation_files_dir, secure_filename) # Путь для сохранения остается прежним
+                      filename_ext = os.path.splitext(original_filename)[1].lower() or '.png'
+                      secure_filename = f"{generation.collection_id} {filename_base}{filename_ext}"
+                      
+                      # Полный абсолютный путь для сохранения файла на диск
+                      absolute_full_save_path_on_disk = os.path.join(absolute_dir_for_generation_files_on_disk, secure_filename)
+                      
                       mime_type = file_storage.content_type
-                      infotext = None # TODO: Как передается infotext с request.files?
+                      infotext = None
 
                       try:
-                           logger.info(f"Saving file '{original_filename}' as '{secure_filename}' to {generation_files_dir}")
-                           file_storage.save(full_save_path)
-                           logger.info(f"File saved successfully: {full_save_path}")
-                           size_bytes = os.path.getsize(full_save_path)
+                           logger.info(f"Saving file '{original_filename}' as '{secure_filename}' to {absolute_dir_for_generation_files_on_disk}")
+                           file_storage.save(absolute_full_save_path_on_disk)
+                           logger.info(f"File saved successfully: {absolute_full_save_path_on_disk}")
+                           size_bytes = os.path.getsize(absolute_full_save_path_on_disk)
 
-                           # Создаем запись GeneratedFile
+                           # Определяем значение для GeneratedFile.file_path
+                           path_for_db: str
+                           # Проверяем, находится ли сохраненный файл внутри корневой папки GENERATED_FILES_FOLDER
+                           # os.path.abspath нужен для надежного сравнения, особенно если один из путей может содержать '..'
+                           if os.path.abspath(absolute_full_save_path_on_disk).startswith(generated_files_root_abs + os.sep):
+                               # Если да, сохраняем путь относительный к GENERATED_FILES_FOLDER
+                               path_for_db = os.path.relpath(absolute_full_save_path_on_disk, generated_files_root_abs)
+                           else:
+                               # Если нет (например, project.path был абсолютным и указывал в другое место),
+                               # сохраняем полный абсолютный путь.
+                               # ВАЖНО: Стандартный file_serving эндпоинт не сможет отдать этот файл без модификаций.
+                               logger.warning(
+                                   f"File {absolute_full_save_path_on_disk} is saved outside servable "
+                                   f"GENERATED_FILES_FOLDER ({generated_files_root_abs}). "
+                                   f"Storing absolute path in DB. File may not be accessible via standard file serving URL."
+                               )
+                               path_for_db = absolute_full_save_path_on_disk
+
                            new_file = GeneratedFile(
                                 generation_id=generation.id,
-                                file_path=relative_file_path, # Сохраняем путь вида "generation_id/filename.ext"
-                                original_filename=original_filename, 
+                                file_path=path_for_db, # Используем определенный path_for_db
+                                original_filename=original_filename,
                                 mime_type=mime_type,
                                 size_bytes=size_bytes,
                                 infotext=infotext

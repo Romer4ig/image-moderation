@@ -10,12 +10,13 @@ const ProjectsPage = () => {
     projects,
     loading,
     error,
-    savingStatus,
+    getCombinedStatus,
     showAddModal,
     setShowAddModal,
     handleAddSuccess,
     handleProjectChange,
     handleSaveProject,
+    handleReindexProject,
     localProjectChanges,
   } = useProjects();
 
@@ -48,9 +49,10 @@ const ProjectsPage = () => {
                 key={project.id}
                 project={project}
                 localChanges={localProjectChanges[project.id]}
-                savingStatus={savingStatus}
+                status={getCombinedStatus(project.id)}
                 handleProjectChange={handleProjectChange}
                 handleSaveProject={handleSaveProject}
+                handleReindexProject={handleReindexProject}
               />
             ))
           )}

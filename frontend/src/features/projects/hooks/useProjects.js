@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProjects, updateProject } from "../../../services/api"; // Исправляем путь
+import { fetchProjects, updateProject, reindexProject } from "../../../services/api"; // Добавляем reindexProject
+import { toast } from "react-toastify"; // Для уведомлений
 
 export const useProjects = () => {
   const queryClient = useQueryClient();
@@ -8,43 +9,61 @@ export const useProjects = () => {
 
   // --- Загрузка проектов ---
   const {
-    data: projects = [], // Предоставляем пустой массив по умолчанию
-    isLoading: loading, // Переименовываем isLoading в loading для совместимости
+    data: projects = [],
+    isLoading: loading,
     error,
-    refetch: fetchProjectsManual, // Получаем функцию для ручного обновления
+    refetch: fetchProjectsManual,
   } = useQuery({
     queryKey: ["projects"],
-    queryFn: fetchProjects, // Используем функцию из api.js
-    staleTime: 1000 * 60 * 5, // Кэшируем на 5 минут
+    queryFn: fetchProjects,
+    staleTime: 1000 * 60 * 5,
   });
 
   // --- Сохранение проекта ---
   const {
     mutate: saveProjectMutate,
     isLoading: isSaving,
-    error: saveError,
+    error: saveError, // Это ошибка последней мутации сохранения
   } = useMutation({
-    mutationFn: updateProject, // Используем функцию из api.js
+    mutationFn: updateProject,
     onSuccess: (updatedProjectData) => {
-      // Обновляем кэш React Query после успешного сохранения
       queryClient.setQueryData(["projects"], (oldData) =>
         oldData.map((p) => (p.id === updatedProjectData.id ? updatedProjectData : p))
       );
-      // Можно также инвалидировать кэш, чтобы вызвать полный refetch:
-      // queryClient.invalidateQueries(['projects']);
+      toast.success(`Проект "${updatedProjectData.name}" успешно сохранен.`);
     },
-    // onError: (err) => { // Обработка ошибок уже в компоненте?
-    //   console.error("Mutation error:", err);
-    // }
+    onError: (err, variables) => {
+      const projectName = projects.find(p => p.id === variables.projectId)?.name || variables.projectId;
+      toast.error(`Ошибка сохранения проекта "${projectName}": ${err.response?.data?.error || err.message}`);
+    },
   });
 
-  // Локальное состояние для отслеживания изменений перед сохранением
-  // и ошибок JSON (это остается, т.к. не связано с серверным состоянием)
+  // --- Переиндексация проекта ---
+  const {
+    mutate: reindexProjectMutate,
+    isLoading: isReindexing,
+    error: reindexError, // Ошибка последней мутации переиндексации
+    // data: reindexSuccessData, // Данные при успехе, если нужны
+  } = useMutation({
+    mutationFn: reindexProject,
+    onSuccess: (data, projectId) => {
+      const projectName = projects.find(p => p.id === projectId)?.name || projectId;
+      toast.success(`Проект "${projectName}" (${data.path_checked}) переиндексирован: ${data.entry_count} элементов. (${data.message})`);
+      // Здесь не нужно обновлять данные проектов, т.к. сам проект не меняется
+    },
+    onError: (err, projectId) => {
+      const projectName = projects.find(p => p.id === projectId)?.name || projectId;
+      toast.error(`Ошибка переиндексации проекта "${projectName}": ${err.response?.data?.error || err.message}`);
+    },
+  });
+
   const [localProjectChanges, setLocalProjectChanges] = useState({});
   const [jsonErrors, setJsonErrors] = useState({});
+  // Отдельное состояние для отслеживания, какой проект переиндексируется
+  const [reindexingProjectId, setReindexingProjectId] = useState(null);
 
   const handleAddSuccess = useCallback(() => {
-    fetchProjectsManual(); // Обновляем список после добавления
+    fetchProjectsManual();
     setShowAddModal(false);
   }, [fetchProjectsManual]);
 
@@ -53,101 +72,92 @@ export const useProjects = () => {
       ...prev,
       [projectId]: { ...(prev[projectId] || {}), [field]: value },
     }));
-
     if (field === "jsonString") {
       let jsonError = null;
-      try {
-        if (value.trim()) {
-          JSON.parse(value);
-        }
-      } catch {
-        jsonError = "Невалидный JSON";
-      }
+      try { if (value.trim()) { JSON.parse(value); } } catch { jsonError = "Невалидный JSON"; }
       setJsonErrors((prev) => ({ ...prev, [projectId]: jsonError }));
     }
   }, []);
 
   const handleSaveProject = useCallback(
     (projectId) => {
-      const projectFromCache = projects.find((p) => p.id === projectId);
       const changes = localProjectChanges[projectId];
       const jsonError = jsonErrors[projectId];
-
-      if (!projectFromCache || !changes) return; // Нет изменений для сохранения
-      if (jsonError) {
-        alert("Пожалуйста, исправьте ошибку в JSON перед сохранением.");
+      if (!changes || Object.keys(changes).length === 0) {
+        toast.info("Нет изменений для сохранения.");
         return;
       }
-
-      const payload = { ...changes }; // Берем только измененные поля
-
-      // Если меняли JSON, парсим его
+      if (jsonError) {
+        toast.error("Пожалуйста, исправьте ошибку в JSON перед сохранением.");
+        return;
+      }
+      const payload = { ...changes };
       if (payload.jsonString !== undefined) {
         try {
-          payload.base_generation_params_json = payload.jsonString.trim()
-            ? JSON.parse(payload.jsonString)
-            : {};
-          delete payload.jsonString; // Удаляем строковое представление из payload
-        } catch {
-          // Эта ошибка уже должна быть поймана в handleProjectChange и jsonErrors
-          return;
-        }
+          payload.base_generation_params_json = payload.jsonString.trim() ? JSON.parse(payload.jsonString) : {};
+          delete payload.jsonString;
+        } catch { return; }
       }
-      // Преобразуем width/height в числа
-      if (payload.default_width !== undefined)
-        payload.default_width = Number(payload.default_width) || 512;
-      if (payload.default_height !== undefined)
-        payload.default_height = Number(payload.default_height) || 512;
+      if (payload.default_width !== undefined) payload.default_width = Number(payload.default_width) || 512;
+      if (payload.default_height !== undefined) payload.default_height = Number(payload.default_height) || 512;
 
       saveProjectMutate(
         { projectId, projectData: payload },
         {
           onSettled: () => {
-            // Очищаем локальные изменения и ошибки JSON после попытки сохранения
-            setLocalProjectChanges((prev) => {
-              const newState = { ...prev };
-              delete newState[projectId];
-              return newState;
-            });
-            setJsonErrors((prev) => {
-              const newState = { ...prev };
-              delete newState[projectId];
-              return newState;
-            });
+            setLocalProjectChanges((prev) => { const newState = { ...prev }; delete newState[projectId]; return newState; });
+            setJsonErrors((prev) => { const newState = { ...prev }; delete newState[projectId]; return newState; });
           },
         }
       );
     },
-    [projects, localProjectChanges, jsonErrors, saveProjectMutate]
+    [localProjectChanges, jsonErrors, saveProjectMutate, toast]
   );
 
-  // Собираем savingStatus для UI на основе мутации и ошибок JSON
-  const savingStatus = projects.reduce((acc, project) => {
-    acc[project.id] = {
-      isSaving: isSaving && localProjectChanges[project.id] !== undefined, // Показываем спиннер только если этот проект сохраняется
-      error:
-        saveError && localProjectChanges[project.id] !== undefined
-          ? saveError.response?.data?.error || saveError.message
-          : null,
-      jsonError: jsonErrors[project.id] || null,
+  const handleReindexProject = useCallback((projectId) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project || !project.path) {
+        toast.warn(`Для проекта "${project?.name || projectId}" не указан путь для индексации.`);
+        return;
+    }
+    setReindexingProjectId(projectId); // Устанавливаем ID текущего проекта для reindex
+    reindexProjectMutate(projectId, {
+        onSettled: () => {
+            setReindexingProjectId(null); // Сбрасываем после завершения
+        }
+    });
+  }, [projects, reindexProjectMutate, toast]);
+
+
+  const getCombinedStatus = (projectId) => {
+    const isCurrentlySaving = isSaving && localProjectChanges[projectId] !== undefined && Object.keys(localProjectChanges[projectId]).length > 0;
+    const currentSaveError = saveError && localProjectChanges[projectId] !== undefined ? (saveError.response?.data?.error || saveError.message) : null;
+    const currentJsonError = jsonErrors[projectId] || null;
+    
+    const isCurrentlyReindexing = isReindexing && reindexingProjectId === projectId;
+    const currentReindexError = reindexError && reindexingProjectId === projectId ? (reindexError.response?.data?.error || reindexError.message) : null;
+
+    return {
+      isSaving: isCurrentlySaving,
+      saveError: currentSaveError,
+      jsonError: currentJsonError,
+      isReindexing: isCurrentlyReindexing,
+      reindexError: currentReindexError,
     };
-    return acc;
-  }, {});
+  };
 
   return {
-    // Используем данные и состояния из useQuery и useMutation
-    projects, // Данные из кэша
+    projects,
     loading,
     error,
-    savingStatus, // Собранный статус
+    // savingStatus, // Заменяем на getCombinedStatus
+    getCombinedStatus,
     showAddModal,
     setShowAddModal,
     handleAddSuccess,
-    // Передаем функции для изменения локального состояния
     handleProjectChange,
-    // Передаем функцию для запуска сохранения
     handleSaveProject,
-    // Локальные изменения и ошибки для отображения в UI
+    handleReindexProject, // Добавляем новый обработчик
     localProjectChanges,
   };
 };

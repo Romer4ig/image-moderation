@@ -19,14 +19,13 @@ export const useAttemptSelection = (
   const { mutate: confirmSelectionMutate, isLoading: isSubmitting } = useMutation({
     mutationFn: selectCover,
     onSuccess: () => {
-      // Инвалидируем кэши после успешного выбора
-      queryClient.invalidateQueries({ queryKey: ["gridData"] });
-      // Инвалидируем кэш для текущей модалки, чтобы обновить topRowItems
-      // (Важно делать это *после* успешного ответа, чтобы API вернул обновленные данные)
+      // Инвалидируем кэш данных основной сетки по базовому ключу
+      queryClient.invalidateQueries({ queryKey: ["grid-data-infinite"] });
+      // Инвалидируем кэш данных для модального окна выбора
       queryClient.invalidateQueries({ queryKey: ["selectionData", collectionId, activeProjectId]});
 
       console.log("Selection confirmed successfully via mutation");
-      onSelectionConfirmed(); // Внешний callback
+      onSelectionConfirmed();
     },
     onError: (err) => {
       console.error("Error confirming selection via mutation:", err);

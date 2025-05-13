@@ -32,8 +32,8 @@ from backend.models import db # Импортируем db из models.py
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-# Инициализация SocketIO
-socketio = SocketIO()
+# Инициализация SocketIO с явным указанием async_mode
+socketio = SocketIO(async_mode='eventlet')
 
 def create_app():
     app = Flask(__name__)
@@ -114,20 +114,11 @@ def create_app():
 # app = create_app() 
 
 # Если хотим запускать через python app.py (для отладки)
-if __name__ == '__main__':
-    # # Хак для разрешения относительных импортов при прямом запуске
-    # import sys
-    # import os
-    # # Добавляем родительскую директорию (корень проекта) в sys.path
-    # # Это позволяет Python найти пакет 'backend' при импорте '.models'
-    # current_dir = os.path.dirname(os.path.abspath(__file__))
-    # parent_dir = os.path.dirname(current_dir)
-    # if parent_dir not in sys.path:
-    #     sys.path.insert(0, parent_dir)
-
-    app = create_app()
-    # Используем socketio.run для поддержки WebSockets
-    socketio.run(app, 
-                 debug=os.environ.get('FLASK_DEBUG') == '1', 
-                 port=int(os.environ.get('FLASK_PORT', 5001)), # Берем порт из .env
-                 host='0.0.0.0',allow_unsafe_werkzeug=True)
+# Этот блок можно закомментировать или удалить, т.к. запуск идет через run.py
+# if __name__ == '__main__':
+#     app = create_app()
+#     # Используем socketio.run для поддержки WebSockets
+#     socketio.run(app, 
+#                  debug=os.environ.get('FLASK_DEBUG') == '1', 
+#                  port=int(os.environ.get('FLASK_PORT', 5001)), # Берем порт из .env
+#                  host='0.0.0.0',allow_unsafe_werkzeug=True)

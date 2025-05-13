@@ -6,6 +6,7 @@ import { createProject } from "../../services/api";
 const AddProjectModal = ({ show, onHide, onSuccess }) => {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [path, setPath] = useState("");
   const [basePositivePrompt, setBasePositivePrompt] = useState("");
   const [baseNegativePrompt, setBaseNegativePrompt] = useState("");
   const [defaultWidth, setDefaultWidth] = useState(512);
@@ -48,6 +49,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
 
   const resetForm = () => {
     setName("");
+    setPath("");
     setBasePositivePrompt("");
     setBaseNegativePrompt("");
     setDefaultWidth(512);
@@ -82,6 +84,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
 
     const payload = {
       name: name.trim(),
+      path: path.trim(),
       base_positive_prompt: basePositivePrompt,
       base_negative_prompt: baseNegativePrompt,
       default_width: Number(defaultWidth) || 512,
@@ -111,6 +114,20 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
               required
               disabled={isSubmitting}
             />
+          </Form.Group>
+
+          <Form.Group className="mb-3" controlId="projectPath">
+            <Form.Label>Путь сохранения</Form.Label>
+            <Form.Control
+              type="text"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="Например, /mnt/generated_images/my_project или my_project_folder"
+            />
+            <Form.Text muted>
+              Опционально. Если указано, файлы генераций будут сохраняться в этой директории (относительно базовой директории генераций на сервере).
+            </Form.Text>
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="projectBasePositivePrompt">
