@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Form, Badge } from "react-bootstrap";
 import GridCell from "./GridCell";
+import { useCollectionActions } from "../hooks/useCollectionActions";
 
 const GridRow = ({
   collection,
@@ -14,6 +15,9 @@ const GridRow = ({
   showCollectionComment,
   generationStatusFilter,
 }) => {
+  // Используем хук для автосохранения
+  const { fieldSaveStatus, handleAutoSaveCollectionField } = useCollectionActions();
+
   // Локальное состояние для редактируемых полей
   const [localPositive, setLocalPositive] = useState(collection.collection_positive_prompt || "");
   const [localNegative, setLocalNegative] = useState(collection.collection_negative_prompt || "");
@@ -85,6 +89,7 @@ const GridRow = ({
                   placeholder="Positive Prompt"
                   value={localPositive}
                   onChange={(e) => setLocalPositive(e.target.value)}
+                  onBlur={() => handleAutoSaveCollectionField(collection.id, "positive", localPositive)}
                   style={{
                     flex: 1,
                     minHeight: 32,
@@ -92,7 +97,11 @@ const GridRow = ({
                     resize: 'none',
                     overflow: 'auto',
                   }}
-                  className={`figma-textarea`}
+                  className={`figma-textarea ${
+                    fieldSaveStatus[collection.id]?.positive?.saving ? 'is-saving' :
+                    fieldSaveStatus[collection.id]?.positive?.saved ? 'is-saved' :
+                    fieldSaveStatus[collection.id]?.positive?.error ? 'is-error' : ''
+                  }`}
                   isInvalid={positivePromptInvalid}
                 />
               </div>
@@ -104,6 +113,7 @@ const GridRow = ({
                   placeholder="Negative Prompt"
                   value={localNegative}
                   onChange={(e) => setLocalNegative(e.target.value)}
+                  onBlur={() => handleAutoSaveCollectionField(collection.id, "negative", localNegative)}
                   style={{
                     flex: 1,
                     minHeight: 32,
@@ -111,7 +121,11 @@ const GridRow = ({
                     resize: 'none',
                     overflow: 'auto',
                   }}
-                  className={`figma-textarea`}
+                  className={`figma-textarea ${
+                    fieldSaveStatus[collection.id]?.negative?.saving ? 'is-saving' :
+                    fieldSaveStatus[collection.id]?.negative?.saved ? 'is-saved' :
+                    fieldSaveStatus[collection.id]?.negative?.error ? 'is-error' : ''
+                  }`}
                 />
               </div>
             )}
@@ -122,6 +136,7 @@ const GridRow = ({
                   placeholder="Комментарий"
                   value={localComment}
                   onChange={(e) => setLocalComment(e.target.value)}
+                  onBlur={() => handleAutoSaveCollectionField(collection.id, "comment", localComment)}
                   style={{
                     flex: 1,
                     minHeight: 32,
@@ -129,7 +144,11 @@ const GridRow = ({
                     resize: 'none',
                     overflow: 'auto',
                   }}
-                  className={`figma-textarea`}
+                  className={`figma-textarea ${
+                    fieldSaveStatus[collection.id]?.comment?.saving ? 'is-saving' :
+                    fieldSaveStatus[collection.id]?.comment?.saved ? 'is-saved' :
+                    fieldSaveStatus[collection.id]?.comment?.error ? 'is-error' : ''
+                  }`}
                 />
               </div>
             )}

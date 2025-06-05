@@ -27,22 +27,17 @@ from flask_migrate import Migrate
 # Используем абсолютный импорт
 from backend.models import db # Импортируем db из models.py
 
-# Загружаем переменные окружения из .env файла
-# Указываем путь к .env относительно текущего файла (app.py)
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-# Инициализация SocketIO с явным указанием async_mode
-socketio = SocketIO(async_mode='eventlet')
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
 
-    # Конфигурация из переменных окружения
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key') # Обязательно!
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    # Путь к папке для генераций (абсолютный)
     base_dir = os.path.abspath(os.path.dirname(__file__))
     app.config['GENERATED_FILES_FOLDER'] = os.path.join(base_dir, os.environ.get('GENERATED_FILES_FOLDER', 'generated_images'))
     # Убедимся, что папка существует

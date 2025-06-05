@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateCollection } from "../../../services/api"; // Импортируем функцию API
 
-export const useCollectionActions = (setCollections) => {
+export const useCollectionActions = () => {
   const queryClient = useQueryClient();
   const [fieldSaveStatus, setFieldSaveStatus] = useState({});
   const saveTimersRef = useRef({});
@@ -11,22 +11,11 @@ export const useCollectionActions = (setCollections) => {
   const { mutate: updateFieldMutate } = useMutation({
     mutationFn: updateCollection, // Функция из api.js
     onSuccess: (updatedCollectionData, variables) => {
-      // variables содержит { collectionId, fieldType, ... }
       const { collectionId, fieldType } = variables;
       const timerKey = `${collectionId}-${fieldType}`;
 
-      // Обновляем кэш грида (опционально, если /grid-data содержит эти поля)
-      // queryClient.invalidateQueries(['gridData']);
-      // Или обновляем вручную, если нужно
-      queryClient.setQueryData(["gridData"], (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          collections: oldData.collections.map((c) =>
-            c.id === collectionId ? updatedCollectionData : c
-          ),
-        };
-      });
+      // Инвалидируем кэш грида, чтобы он обновился
+      queryClient.invalidateQueries({ queryKey: ["grid-data-infinite"] });
 
       // Устанавливаем статус "Сохранено"
       setFieldSaveStatus((prev) => ({
@@ -71,27 +60,29 @@ export const useCollectionActions = (setCollections) => {
           [fieldType]: { saving: false, error: errorMsg, saved: false },
         },
       }));
+
+      // Запускаем таймер для сброса статуса ошибки
+      const timerKey = `${collectionId}-${fieldType}-error`;
+      clearTimeout(saveTimersRef.current[timerKey]); 
+      saveTimersRef.current[timerKey] = setTimeout(() => {
+        setFieldSaveStatus((prev) => {
+          if (prev[collectionId]?.[fieldType]?.error) {
+            const newStatus = { ...prev };
+            if (newStatus[collectionId]) {
+              newStatus[collectionId] = { ...newStatus[collectionId] };
+              delete newStatus[collectionId][fieldType];
+              if (Object.keys(newStatus[collectionId]).length === 0) {
+                delete newStatus[collectionId];
+              }
+            }
+            return newStatus;
+          }
+          return prev;
+        });
+        delete saveTimersRef.current[timerKey];
+      }, 5000); // 5 секунд для отображения ошибки
     },
   });
-
-  // Локальное обновление состояния (остается без изменений)
-  const handlePromptChange = useCallback(
-    (collectionId, fieldType, newValue) => {
-      setCollections((prevCollections) =>
-        prevCollections.map((coll) => {
-          if (coll.id === collectionId) {
-            let fieldKey = "";
-            if (fieldType === "positive") fieldKey = "collection_positive_prompt";
-            else if (fieldType === "negative") fieldKey = "collection_negative_prompt";
-            else if (fieldType === "comment") fieldKey = "comment";
-            if (fieldKey) return { ...coll, [fieldKey]: newValue };
-          }
-          return coll;
-        })
-      );
-    },
-    [setCollections]
-  );
 
   // Запуск сохранения при потере фокуса
   const handleAutoSaveCollectionField = useCallback(
@@ -145,7 +136,6 @@ export const useCollectionActions = (setCollections) => {
 
   return {
     fieldSaveStatus: finalFieldSaveStatus, // Возвращаем собранный статус
-    handlePromptChange,
     handleAutoSaveCollectionField,
   };
 };

@@ -79,13 +79,21 @@ def get_grid_data_service(visible_project_ids_str: str | None, search=None, type
 
     # --- Применяем фильтр по статусу генерации --- 
     if generation_status_filter == 'not_selected':
-         subquery_selected = select(literal(1)).where(
-            and_(
-                SelectedCover.collection_id == func.cast(Collection.id, db.String),
-                SelectedCover.project_id.in_(project_ids_for_cells) 
-            )
-        ).exists()
-         query = query.filter(~subquery_selected)
+        if project_ids_for_cells: # Применяем фильтр только если есть видимые проекты
+            # Подзапрос для подсчета количества проектов, для которых выбрана обложка для данной коллекции
+            selected_covers_count_subquery = select(
+                func.count(func.distinct(SelectedCover.project_id)) # Считаем уникальные project_id
+            ).where(
+                and_(
+                    SelectedCover.collection_id == func.cast(Collection.id, db.String),
+                    SelectedCover.project_id.in_(project_ids_for_cells)
+                )
+            ).correlate(Collection).as_scalar()
+
+            # Коллекция должна оставаться, если количество выбранных обложек МЕНЬШЕ, чем общее количество видимых проектов
+            query = query.filter(selected_covers_count_subquery < len(project_ids_for_cells))
+        # Если project_ids_for_cells пуст, то фильтр 'not_selected' не имеет смысла или должен быть проигнорирован.
+        # Текущая логика (если убрать if project_ids_for_cells) оставит все коллекции, что может быть ожидаемо.
     elif generation_status_filter == 'not_generated':
          subquery_generated = select(literal(1)).where(
             and_(

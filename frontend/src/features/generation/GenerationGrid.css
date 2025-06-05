@@ -264,10 +264,13 @@
 .figma-textarea.is-valid, /* Валидное поле */
 .figma-textarea.is-saved { /* ИЛИ успешно сохраненное поле */
   border-color: #198754 !important; /* FIGMA: stroke_GI9RKU */
+  border-width: 2px;
   /* box-shadow: 0px 0px 0px 4px rgba(25, 135, 84, 0.5); */ /* FIGMA: effect_H9Y96E - опционально */
 }
-.figma-textarea.is-invalid { /* Невалидное поле */
+.figma-textarea.is-invalid, /* Невалидное поле */
+.figma-textarea.is-error { /* ИЛИ ошибка сохранения */
   border-color: #DC3545 !important; /* FIGMA: stroke_B2ZZCS */
+  border-width: 2px;
 }
 
 /* FIGMA-DEV: Стили для Badge */

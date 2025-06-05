@@ -5,3 +5,6 @@ Flask-SQLAlchemy
 Flask-SocketIO
 python-dotenv
 alembic
+pytest
+pytest-flask
+flask_migrate
