@@ -197,6 +197,21 @@ body, .modal-content, .modal, .modal-title, .modal-body, .modal-footer {
   cursor: pointer;
 }
 
+/* Стили для скелетного загрузчика */
+.skeleton-loader {
+  background-color: #e5e7eb;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
 /* Комментарий и фильтры */
 .row.align-items-center.mb-3 {
   margin-bottom: var(--gap-main) !important;

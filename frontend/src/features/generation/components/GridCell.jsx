@@ -90,14 +90,6 @@ const GridCell = ({ cellData, onClick }) => {
       >
         {content}
       </div>
-      {/*
-      {cellData?.status === "selected" && (
-        <CheckCircleFill
-          className="position-absolute text-success bg-white rounded-circle p-1"
-          style={{ top: "5px", right: "5px", fontSize: "1.2rem" }}
-        />
-      )}
-      */}
     </td>
   );
 };

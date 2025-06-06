@@ -1,4 +1,6 @@
 import logging
+import os
+import shutil
 from sqlalchemy import func, distinct, and_, or_, select, literal_column, case
 from sqlalchemy.orm import aliased, contains_eager, selectinload
 from sqlalchemy.sql.expression import literal # Добавляем literal
@@ -11,6 +13,36 @@ from flask import current_app
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+def _handle_file_copy_for_selection(selection_path: str, old_file: GeneratedFile | None, new_file: GeneratedFile | None):
+    """
+    Обрабатывает копирование новой выбранной обложки и удаление старой.
+    Эта функция не вызывает исключений, а только логирует ошибки,
+    так как файловые операции являются второстепенными по отношению к записи в БД.
+    """
+    try:
+        # Убедимся, что директория для сохранения существует
+        os.makedirs(selection_path, exist_ok=True)
+
+        # 1. Удаляем старый файл из папки выбранных, если он там был
+        if old_file and old_file.file_path:
+            old_filename = os.path.basename(old_file.file_path)
+            old_file_dest_path = os.path.join(selection_path, old_filename)
+            if os.path.exists(old_file_dest_path):
+                os.remove(old_file_dest_path)
+                logger.info(f"Removed old selected cover: {old_file_dest_path}")
+
+        # 2. Копируем новый файл в папку выбранных
+        if new_file and new_file.file_path:
+            source_path = new_file.file_path
+            if os.path.exists(source_path):
+                shutil.copy(source_path, selection_path)
+                logger.info(f"Copied new selected cover from {source_path} to {selection_path}")
+            else:
+                logger.error(f"Source file for new selection does not exist: {source_path}")
+
+    except Exception as e:
+        logger.exception(f"Error during file operations for selection path '{selection_path}': {e}")
 
 # Функция-хелпер для безопасного получения ID проектов
 def _parse_project_ids(ids_str: str | None) -> list[str] | None:
@@ -305,92 +337,67 @@ def get_grid_data_service(visible_project_ids_str: str | None, search=None, type
 
 # --- Функции для окна выбора --- 
 
-def get_selection_data_service(collection_id: str, project_ids_str: str, initial_project_id: str) -> dict | None:
+def get_selection_shell_service(collection_id: str, initial_project_id: str) -> dict | None:
     """
-    Получает данные для модального окна выбора, ВКЛЮЧАЯ информацию о текущих выбранных обложках.
+    Получает "оболочку" данных для модального окна: инфо о коллекции,
+    целевом проекте и всех проектах для верхнего ряда с их выбранными обложками.
     """
-    project_ids_list = _parse_project_ids(project_ids_str)
-    # logger.debug(f"get_selection_data_service: collection_id={collection_id}, project_ids_list={project_ids_list}, initial_project_id={initial_project_id}")
-
-    # Загружаем коллекцию и целевой проект (для заголовка)
     collection = db.session.get(Collection, collection_id)
     target_project = db.session.get(Project, initial_project_id)
     if not collection or not target_project:
         logger.warning(f"Collection {collection_id} or target Project {initial_project_id} not found.")
         return None
 
-    # Загружаем ВСЕ проекты для верхнего ряда (top_row)
     all_projects = Project.query.order_by(Project.name).all()
-    all_project_ids = [p.id for p in all_projects] # Получаем ID всех проектов
+    all_project_ids = [p.id for p in all_projects]
 
-    # --- Загружаем информацию о выбранных обложках для ЭТОЙ коллекции --- 
     selected_covers = db.session.query(SelectedCover).filter(
-        SelectedCover.collection_id == collection_id, # Сравниваем строку со строкой
-        # Загружаем выбранные для ВСЕХ проектов, а не только запрошенных в project_ids_list
-        # Так как top_row_projects показывает все проекты
+        SelectedCover.collection_id == collection_id,
         SelectedCover.project_id.in_(all_project_ids) 
-    ).options(
-        selectinload(SelectedCover.generated_file) # Загружаем связанный файл
-    ).all()
+    ).options(selectinload(SelectedCover.generated_file)).all()
 
     selected_covers_map = {}
     for sc in selected_covers:
         if sc.generated_file:
             selected_covers_map[sc.project_id] = {
                 'selected_generated_file_id': sc.generated_file_id,
-                'selected_cover_url': sc.generated_file.get_url() # Получаем URL из файла
+                'selected_cover_url': sc.generated_file.get_url()
             }
         else:
              logger.warning(f"SelectedCover C:{sc.collection_id} P:{sc.project_id} has no generated_file linked.")
-    # logger.debug(f"Selected covers map for collection {collection_id}: {selected_covers_map}")
 
-    # --- Загружаем попытки генерации для ЗАПРОШЕННЫХ проектов --- 
-    generation_attempts = []
-    project_ids_with_generations = set()
-    if project_ids_list: # Загружаем попытки только если они были запрошены
-        attempts_query = db.session.query(Generation).filter(
-            Generation.collection_id == collection_id,
-            Generation.project_id.in_(project_ids_list),
-            Generation.status.in_([GenerationStatus.COMPLETED, GenerationStatus.FAILED])
-        ).options(
-            selectinload(Generation.generated_files)
-        ).order_by(Generation.project_id, Generation.updated_at.desc())
-        
-        generation_attempts_raw = attempts_query.all()
-
-        # --- Формируем вывод попыток и собираем ID проектов с генерациями ---
-        for gen in generation_attempts_raw:
-            project_ids_with_generations.add(gen.project_id)
-            generation_attempts.append(gen.to_dict(include_files=True))
-        # logger.debug(f"Found {len(generation_attempts)} generation attempts for projects {project_ids_list}")
-    else:
-        logger.debug("No project_ids requested, skipping generation attempts fetch.")
-
-
-    # --- Формируем финальный ответ --- 
     target_project_dict = target_project.to_dict()
-    # Добавляем инфо о выбранной обложке к целевому проекту
-    selected_cover_info = selected_covers_map.get(target_project.id)
-    if selected_cover_info:
-        target_project_dict.update(selected_cover_info)
+    if selected_info := selected_covers_map.get(target_project.id):
+        target_project_dict.update(selected_info)
 
     top_row_projects_list = []
     for p in all_projects:
         p_dict = p.to_dict()
-        # Добавляем инфо о выбранной обложке к каждому проекту в верхнем ряду
-        selected_cover_info = selected_covers_map.get(p.id)
-        if selected_cover_info:
-            p_dict.update(selected_cover_info)
+        if selected_info := selected_covers_map.get(p.id):
+            p_dict.update(selected_info)
         top_row_projects_list.append(p_dict)
 
     return {
         'collection': collection.to_dict(),
         'target_project': target_project_dict,
-        'top_row_projects': top_row_projects_list, # Теперь содержит selected_cover_url и id
-        'generation_attempts': generation_attempts,
-        'project_ids_with_generations': sorted(list(project_ids_with_generations))
+        'top_row_projects': top_row_projects_list,
     }
 
+def get_project_attempts_service(collection_id: str, project_id: str) -> list:
+    """
+    Получает все завершенные или неудачные попытки генерации для
+    одной коллекции и одного проекта.
+    """
+    attempts_query = db.session.query(Generation).filter(
+        Generation.collection_id == collection_id,
+        Generation.project_id == project_id,
+        Generation.status.in_([GenerationStatus.COMPLETED, GenerationStatus.FAILED])
+    ).options(
+        selectinload(Generation.generated_files)
+    ).order_by(Generation.updated_at.desc())
+    
+    generation_attempts_raw = attempts_query.all()
+    return [gen.to_dict(include_files=True) for gen in generation_attempts_raw]
 
 def select_cover_service(data: dict) -> tuple[bool, str, int]:
     """
@@ -413,39 +420,46 @@ def select_cover_service(data: dict) -> tuple[bool, str, int]:
     if not generation:
         return False, f"Generation with ID {generation_id} not found.", 404
     
-
-    generated_file = None
+    new_file = None
     if generated_file_id:
-        generated_file = db.session.get(GeneratedFile, generated_file_id)
-        if not generated_file:
+        new_file = db.session.get(GeneratedFile, generated_file_id)
+        if not new_file:
             return False, f"GeneratedFile with ID {generated_file_id} not found.", 404
-        # Проверяем, что файл принадлежит указанной генерации
-        if generated_file.generation_id != generation.id:
+        if new_file.generation_id != generation.id:
              return False, f"GeneratedFile {generated_file_id} does not belong to generation {generation_id}.", 400
 
-    # Находим существующую запись или создаем новую
+    # Находим существующую запись, чтобы определить, какой файл удалять
     selected_cover = db.session.query(SelectedCover).filter_by(
         collection_id=collection_id,
         project_id=project_id
     ).first()
+    old_file_to_delete = selected_cover.generated_file if selected_cover and selected_cover.generated_file else None
 
     try:
         if selected_cover:
             logger.info(f"Updating existing SelectedCover for C:{collection_id} P:{project_id}")
             selected_cover.generation_id = generation_id
-            selected_cover.generated_file_id = generated_file.id if generated_file else None # Обновляем ID файла
+            selected_cover.generated_file_id = new_file.id if new_file else None
         else:
             logger.info(f"Creating new SelectedCover for C:{collection_id} P:{project_id}")
             selected_cover = SelectedCover(
                 collection_id=collection_id,
                 project_id=project_id,
                 generation_id=generation_id,
-                generated_file_id=generated_file.id if generated_file else None
+                generated_file_id=new_file.id if new_file else None
             )
             db.session.add(selected_cover)
 
         db.session.commit()
-        logger.info(f"Successfully selected cover: C:{collection_id}, P:{project_id}, G:{generation_id}, F:{generated_file.id if generated_file else 'None'}")
+        logger.info(f"Successfully selected cover: C:{collection_id}, P:{project_id}, G:{generation_id}, F:{new_file.id if new_file else 'None'}")
+        
+        # --- Файловые операции после успешного коммита ---
+        if project.selection_path:
+            _handle_file_copy_for_selection(
+                selection_path=project.selection_path,
+                old_file=old_file_to_delete,
+                new_file=new_file
+            )
 
         # Оповещение через WebSocket (если нужно)
         # try:
@@ -455,13 +469,12 @@ def select_cover_service(data: dict) -> tuple[bool, str, int]:
         #              'project_id': project_id,
         #              'status': 'selected',
         #              'generation_id': generation_id,
-        #              'file_url': generated_file.get_url() if generated_file else None,
-        #              'file_path': generated_file.file_path if generated_file else None
+        #              'file_url': new_file.get_url() if new_file else None,
+        #              'file_path': new_file.file_path if new_file else None
         #          }, namespace='/grid')
         #          logger.info(f"Emitted grid_cell_updated for C:{collection_id} P:{project_id}")
         # except Exception as e:
         #      logger.error(f"Error emitting WebSocket event: {e}")
-
 
         return True, "Cover selected successfully", 200
 

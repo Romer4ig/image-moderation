@@ -56,6 +56,20 @@ const ProjectAccordionItem = ({
           </Form.Group>
 
           <Form.Group className="mb-3">
+            <Form.Label>Путь выбранных</Form.Label>
+            <Form.Control
+              type="text"
+              value={getFieldValue("selection_path")}
+              onChange={(e) => handleProjectChange(project.id, "selection_path", e.target.value)}
+              disabled={status.isSaving}
+              placeholder="Например, /mnt/selected_images/my_project или selected_covers"
+            />
+            <Form.Text muted>
+              Опционально. Если указано, выбранные обложки будут копироваться в эту директорию.
+            </Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
             <Form.Label>Базовый позитивный промпт</Form.Label>
             <Form.Control
               as="textarea"

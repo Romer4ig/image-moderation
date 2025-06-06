@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 import logging
 # Используем абсолютные импорты
 from backend.models import db, Project, Collection, Generation, GenerationStatus, SelectedCover, GeneratedFile
-from .services import get_grid_data_service, get_selection_data_service, select_cover_service
+from .services import get_grid_data_service, get_selection_shell_service, get_project_attempts_service, select_cover_service
 
 logger = logging.getLogger(__name__)
 
@@ -49,23 +49,42 @@ def get_grid_data_route():
         return jsonify({"error": "Failed to fetch grid data"}), 500
 
 @grid_selection_bp.route('/selection-data', methods=['GET'])
-def get_selection_data_route():
-    """ Маршрут для получения данных окна выбора. Делегирует работу сервису. """
+def get_selection_shell_route():
+    """
+    Маршрут для получения "оболочки" данных окна выбора (инфо о коллекции, проектах).
+    """
     collection_id = request.args.get('collection_id')
-    project_ids_str = request.args.get('project_ids')
-    initial_project_id = request.args.get('initial_project_id')
+    project_id = request.args.get('project_id') # `initialProjectId` с фронтенда
 
-    if not collection_id or not project_ids_str or not initial_project_id:
-        return jsonify({"error": "Missing collection_id, project_ids, or initial_project_id parameter"}), 400
+    if not collection_id or not project_id:
+        return jsonify({"error": "Missing collection_id or project_id parameter"}), 400
 
     try:
-        data = get_selection_data_service(collection_id, project_ids_str, initial_project_id)
-        if data is None: # Сервис может вернуть None при ошибке 404
+        data = get_selection_shell_service(collection_id, project_id)
+        if data is None:
              return jsonify({"error": "Required resources not found"}), 404
         return jsonify(data)
     except Exception as e:
-        logger.exception("Error in get_selection_data_route")
-        return jsonify({"error": "Failed to fetch selection data"}), 500
+        logger.exception("Error in get_selection_shell_route")
+        return jsonify({"error": "Failed to fetch selection shell data"}), 500
+
+@grid_selection_bp.route('/selection-data/attempts', methods=['GET'])
+def get_project_attempts_route():
+    """
+    Маршрут для получения генераций для конкретного проекта в контексте коллекции.
+    """
+    collection_id = request.args.get('collection_id')
+    project_id = request.args.get('project_id')
+
+    if not collection_id or not project_id:
+        return jsonify({"error": "Missing collection_id or project_id parameter"}), 400
+    
+    try:
+        attempts = get_project_attempts_service(collection_id, project_id)
+        return jsonify({'generation_attempts': attempts})
+    except Exception as e:
+        logger.exception("Error in get_project_attempts_route")
+        return jsonify({"error": "Failed to fetch project attempts"}), 500
 
 @grid_selection_bp.route('/select-cover', methods=['POST'])
 def select_cover_route():

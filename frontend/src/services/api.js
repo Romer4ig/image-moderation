@@ -92,6 +92,29 @@ export const fetchSelectionData = async ({ collectionId, initialProjectId, proje
   return data;
 };
 
+// --- Получение данных для "оболочки" модального окна ---
+export const getSelectionShell = async (collectionId, projectId) => {
+  const { data } = await apiClient.get("/selection-data", {
+    params: {
+      collection_id: collectionId,
+      project_id: projectId, // `initialProjectId` для получения target_project
+    },
+  });
+  return data;
+};
+
+// --- Получение генераций для ОДНОГО проекта ---
+export const getProjectAttempts = async (collectionId, projectId) => {
+  const { data } = await apiClient.get("/selection-data/attempts", {
+    params: {
+      collection_id: collectionId,
+      project_id: projectId,
+    },
+  });
+  return data.generation_attempts || []; // Возвращаем только массив попыток
+};
+
+// --- Отправка выбора ---
 export const selectCover = async ({ collectionId, projectId, generationId, generatedFileId }) => {
   const { data } = await apiClient.post("/select-cover", {
     collection_id: collectionId,

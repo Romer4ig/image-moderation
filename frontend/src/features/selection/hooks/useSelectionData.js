@@ -1,143 +1,95 @@
-import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchSelectionData } from "../../../services/api"; // Импорт функции API
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { getSelectionShell, getProjectAttempts } from "../../../services/api";
 
 export const useSelectionData = (show, collectionId, initialProjectId) => {
-  // Состояние для выбранных ID проектов (для загрузки попыток)
   const [selectedProjectIds, setSelectedProjectIds] = useState([]);
-  // Состояние для верхнего ряда (модифицируется из useAttemptSelection для превью)
-  const [topRowItems, setTopRowItems] = useState([]);
 
-  // Инициализируем selectedProjectIds при открытии модалки
+  // 1. При открытии модалки, сбрасываем состояние и устанавливаем начальный проект
   useEffect(() => {
     if (show && initialProjectId) {
       setSelectedProjectIds([initialProjectId]);
     } else if (!show) {
-      setSelectedProjectIds([]); // Сбрасываем при закрытии
+      setSelectedProjectIds([]);
     }
   }, [show, initialProjectId]);
 
-  // --- Запрос данных для модалки ---
-  const queryKey = [
-    "selectionData",
-    collectionId,
-    initialProjectId,
-    // Зависимость от отсортированной строки ID, чтобы ключ был стабильным
-    [...selectedProjectIds].sort().join(","),
-  ];
-
-  const {
-    data: rawSelectionData, // Переименовываем, чтобы было понятно, что это сырые данные
-    isLoading: loading, // Статус загрузки
-    error, // Ошибка
-    isFetching: loadingAttempts, // Индикатор перезагрузки при смене selectedProjectIds
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: () => {
-      if (!collectionId || !initialProjectId || selectedProjectIds.length === 0) {
-        // Возвращаем null или пустой объект, если нет данных для запроса
-        // useQuery не будет вызывать queryFn если enabled: false
-        return Promise.resolve(null);
-      }
-      return fetchSelectionData({
-        collectionId,
-        initialProjectId,
-        projectIds: selectedProjectIds.join(","), // Передаем строку ID
-      });
-    },
-    enabled: !!show && !!collectionId && !!initialProjectId && selectedProjectIds.length > 0, // Запрос активен только когда все параметры есть
-    staleTime: 1000 * 60 * 1, // Кэшируем на 1 минуту
-    // keepPreviousData: true, // Можно включить для более плавного UX при смене фильтров
+  // 2. Основной запрос для "оболочки" модалки (список проектов, таргет и т.д.)
+  const { data: shellData, isLoading: isLoadingShell, error } = useQuery({
+    queryKey: ["selectionShell", collectionId, initialProjectId],
+    queryFn: () => getSelectionShell(collectionId, initialProjectId),
+    enabled: show && !!collectionId && !!initialProjectId,
+    staleTime: 5 * 60 * 1000, // Кэшируем на 5 минут
+    keepPreviousData: true,
   });
 
-  // --- Трансформация данных ---
-  const mappedModalData = React.useMemo(() => {
-    if (!rawSelectionData) return null;
+  // 3. Динамические запросы для генераций каждого выбранного проекта
+  const attemptQueries = useQueries({
+    queries: selectedProjectIds.map(projectId => ({
+      queryKey: ["projectAttempts", collectionId, projectId],
+      queryFn: () => getProjectAttempts(collectionId, projectId),
+      enabled: show && !!collectionId,
+      staleTime: 5 * 60 * 1000,
+    }))
+  });
+  
+  // 4. Обработчик чекбоксов
+  const handleCheckboxChange = (event) => {
+    const { value, checked } = event.target;
+    const projectId = value; // ID - это строка (UUID), parseInt был ошибкой
+    setSelectedProjectIds((prev) =>
+      checked ? [...prev, projectId] : prev.filter((id) => id !== projectId)
+    );
+  };
 
-    // 1. Маппинг generation_attempts
-    const mappedAttempts = (rawSelectionData.generation_attempts || []).map(attempt => {
-      const firstFile = attempt.generated_files?.[0];
-      return {
-        ...attempt, // Копируем все остальные поля попытки
-        // Извлекаем нужные поля из первого файла
-        generated_file_id: firstFile?.id, 
-        file_url: firstFile?.url,
-        // Извлекаем generation_id (который на самом деле id попытки)
+  // 5. Мемоизация и трансформация данных
+  const { topRowItems, displayedAttempts, loadingAttempts, persistedSelectedFileId } = React.useMemo(() => {
+    const isLoading = attemptQueries.some(q => q.isLoading);
+
+    // "Разворачиваем" результаты всех запросов в один плоский массив
+    const allAttempts = attemptQueries
+      .filter(q => q.isSuccess && q.data)
+      .flatMap(q => q.data);
+
+    // Трансформируем данные для отображения
+    const mappedAttempts = allAttempts.flatMap(attempt => 
+      (attempt.generated_files || []).map(file => ({
+        ...attempt,
+        generated_file_id: file.id,
+        file_url: file.url,
         generation_id: attempt.id, 
-        // Добавляем недостающие, если нужно (напр., project_id из самой попытки)
-        // project_id: attempt.project_id, // Уже должно быть в attempt
-      };
-    }).filter(attempt => attempt.generated_file_id && attempt.file_url && attempt.generation_id); // Убираем попытки без файлов ИЛИ ID
+      }))
+    ).filter(Boolean);
 
-    // 2. Маппинг top_row_projects
-    const mappedTopRowProjects = (rawSelectionData.top_row_projects || []).map(project => ({
-        ...project, // Копируем остальные поля проекта
-        project_id: project.id, // Переименовываем id -> project_id
-        project_name: project.name, // Переименовываем name -> project_name
-        // TODO: Добавить поле с URL выбранной обложки, если бэкенд его присылает
-        // selected_cover_url: project.selected_cover_url, 
+    // Данные для верхнего ряда
+    const mappedTopRowProjects = (shellData?.top_row_projects || []).map(p => ({
+      ...p,
+      project_id: p.id,
+      project_name: p.name,
+      selected_cover_url: p.selected_cover_url || null
     }));
 
+    // ID сохраненного файла для текущего активного проекта
+    const savedFileId = shellData?.target_project?.selected_generated_file_id || null;
+
     return {
-        ...rawSelectionData, // Копируем остальные поля ответа (напр., collection, target_project)
-        generation_attempts: mappedAttempts, // Заменяем на смапленные попытки
-        top_row_projects: mappedTopRowProjects, // Заменяем на смапленные проекты для топ-роу
+      topRowItems: mappedTopRowProjects,
+      displayedAttempts: mappedAttempts,
+      loadingAttempts: isLoading,
+      persistedSelectedFileId: savedFileId,
     };
-
-  }, [rawSelectionData]);
-
-  // Обновляем topRowItems из ТРАНСФОРМИРОВАННЫХ данных
-  useEffect(() => {
-    if (mappedModalData?.top_row_projects) {
-      setTopRowItems(mappedModalData.top_row_projects);
-    } else if (!show) {
-      // Сбрасываем при закрытии, если данных нет
-      setTopRowItems([]);
-    }
-  }, [mappedModalData, show]); // Зависимость от mappedModalData
-
-  // Обработчик изменения чекбоксов (остается)
-  const handleCheckboxChange = useCallback(
-    (event) => {
-      const { value, checked } = event.target;
-      const projectIdValue = value;
-      setSelectedProjectIds((prevSelectedIds) => {
-        let newSelectedIds;
-        if (checked) {
-          newSelectedIds = [...new Set([...prevSelectedIds, projectIdValue])];
-        } else {
-          newSelectedIds = prevSelectedIds.filter((id) => id !== projectIdValue);
-          // Если после снятия галочки не осталось ни одного проекта, оставляем initialProjectId
-          if (newSelectedIds.length === 0 && initialProjectId) {
-            newSelectedIds = [initialProjectId];
-          } else if (newSelectedIds.length === 0 && !initialProjectId) {
-            // Если initialProjectId нет, то оставляем пустым - позволяет снять все галочки
-            newSelectedIds = []; 
-          }
-        }
-        return newSelectedIds;
-      });
-    },
-    [initialProjectId]
-  ); // Добавляем initialProjectId в зависимости
-
-  // Извлекаем ID сохраненного файла для активного проекта
-  const persistedSelectedFileId = mappedModalData?.target_project?.selected_generated_file_id || null;
+  }, [shellData, attemptQueries]);
 
   return {
-    // Возвращаем ТРАНСФОРМИРОВАННЫЕ данные
-    modalData: mappedModalData, 
-    loading, 
+    modalData: shellData, // `modalData` теперь содержит только данные "оболочки"
+    loading: isLoadingShell, // Основная загрузка - это загрузка оболочки
     error,
-    // Получаем смапленные попытки из modalData
-    displayedAttempts: mappedModalData?.generation_attempts || [], 
-    loadingAttempts, 
-    // Локальные состояния и обработчики
-    topRowItems, // topRowItems теперь должен содержать selected_cover_url
-    setTopRowItems, // Нужно для useAttemptSelection
+    topRowItems,
     selectedProjectIds,
+    displayedAttempts,
+    loadingAttempts, // Загрузка именно попыток
     handleCheckboxChange,
-    persistedSelectedFileId, // <-- Возвращаем ID сохраненного файла
+    persistedSelectedFileId,
+    // `setTopRowItems` больше не нужен, т.к. `useAttemptSelection` будет обновлять превью иначе
   };
 };

@@ -7,6 +7,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
+  const [selectionPath, setSelectionPath] = useState("");
   const [basePositivePrompt, setBasePositivePrompt] = useState("");
   const [baseNegativePrompt, setBaseNegativePrompt] = useState("");
   const [defaultWidth, setDefaultWidth] = useState(512);
@@ -50,6 +51,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
   const resetForm = () => {
     setName("");
     setPath("");
+    setSelectionPath("");
     setBasePositivePrompt("");
     setBaseNegativePrompt("");
     setDefaultWidth(512);
@@ -85,6 +87,7 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
     const payload = {
       name: name.trim(),
       path: path.trim(),
+      selection_path: selectionPath.trim(),
       base_positive_prompt: basePositivePrompt,
       base_negative_prompt: baseNegativePrompt,
       default_width: Number(defaultWidth) || 512,
@@ -127,6 +130,20 @@ const AddProjectModal = ({ show, onHide, onSuccess }) => {
             />
             <Form.Text muted>
               Опционально. Если указано, файлы генераций будут сохраняться в этой директории (относительно базовой директории генераций на сервере).
+            </Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mb-3" controlId="projectSelectionPath">
+            <Form.Label>Путь выбранных</Form.Label>
+            <Form.Control
+              type="text"
+              value={selectionPath}
+              onChange={(e) => setSelectionPath(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="Например, /mnt/selected_images/my_project или selected_covers"
+            />
+            <Form.Text muted>
+              Опционально. Если указано, выбранные обложки будут копироваться в эту директорию.
             </Form.Text>
           </Form.Group>
 

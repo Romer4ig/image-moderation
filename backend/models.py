@@ -32,6 +32,7 @@ class Project(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(120), nullable=False)
     path = db.Column(db.Text, nullable=True) # Новое поле path
+    selection_path = db.Column(db.Text, nullable=True) # Путь для сохранения выбранных обложек
     base_generation_params_json = db.Column(db.JSON, nullable=True, default=lambda: {}) # Используем lambda для default
     base_positive_prompt = db.Column(db.Text, nullable=True, default='')
     base_negative_prompt = db.Column(db.Text, nullable=True, default='')
@@ -48,7 +49,8 @@ class Project(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'path': self.path, # Добавляем path в сериализацию
+            'path': self.path,
+            'selection_path': self.selection_path,
             'base_generation_params_json': self.base_generation_params_json,
             'base_positive_prompt': self.base_positive_prompt,
             'base_negative_prompt': self.base_negative_prompt,

@@ -20,6 +20,7 @@ def create_project():
     new_project = Project(
         name=data['name'],
         path=data.get('path'),
+        selection_path=data.get('selection_path'),
         base_generation_params_json=data.get('base_generation_params_json', {}),
         base_positive_prompt=data.get('base_positive_prompt', ''),
         base_negative_prompt=data.get('base_negative_prompt', ''),
@@ -48,6 +49,7 @@ def update_project(project_id):
 
     project.name = data.get('name', project.name)
     project.path = data.get('path', project.path)
+    project.selection_path = data.get('selection_path', project.selection_path)
     # Обновляем JSON аккуратно
     if 'base_generation_params_json' in data:
          project.base_generation_params_json = data['base_generation_params_json']

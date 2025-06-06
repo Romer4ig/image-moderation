@@ -1,14 +1,20 @@
 import React from "react";
 import { Row, Col, Form } from "react-bootstrap";
+import { useSelectionContext } from "../context/SelectionContext";
 
-const ProjectFilters = ({ projects, selectedProjectIds, handleCheckboxChange }) => {
+const ProjectFilters = () => {
+  const { topRowItems, selectedProjectIds, handleCheckboxChange } = useSelectionContext();
+
+  // Используем topRowItems, так как в нем уже есть правильные псевдонимы project_id и project_name
+  const projects = topRowItems || [];
+
   return (
     <Row className="align-items-center mb-3">
       <Col xs="auto">
         <Form.Label className="me-2 mb-0 fw-medium">Показывать генерации для:</Form.Label>
       </Col>
       <Col>
-        {projects && projects.length > 0 ? (
+        {projects.length > 0 ? (
           projects.map((p) => (
             <Form.Check
               inline
@@ -22,7 +28,7 @@ const ProjectFilters = ({ projects, selectedProjectIds, handleCheckboxChange }) 
             />
           ))
         ) : (
-          <span className="text-muted">Нет доступных проектов для фильтрации.</span>
+          <span className="text-muted">Загрузка проектов...</span>
         )}
       </Col>
     </Row>
